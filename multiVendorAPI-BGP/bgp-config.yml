@@ -10,12 +10,6 @@
     gobgp_asn: 65002
 
   tasks:
-    # Gather facts from localhost only (for OS detection)
-    - name: Gather facts from localhost
-      setup:
-      delegate_to: localhost
-      run_once: true
-
     # Task execution order:
     # 1. Enable zebra/bgpd on FRR1 (FRR restarts)
     # 2. Create network links once (after FRR restart)
@@ -35,25 +29,17 @@
       delegate_to: localhost
 
     # Step 2: Create network links once after FRR restart
-    # macOS version - use Docker container
-    - name: Create network links between containers (macOS)
+    # Use containerlab image which already has docker, ip, and nsenter pre-installed
+    - name: Create network links between containers
       shell: |
         docker run --rm --privileged \
           --pid=host \
           --network=host \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v {{ playbook_dir }}:/workspace \
-          alpine sh -c "apk add --no-cache iproute2 docker-cli && sh /workspace/create-links.sh"
+          ghcr.io/srl-labs/clab sh /workspace/create-links.sh
       run_once: true
       delegate_to: localhost
-      when: ansible_system == "Darwin"
-
-    # WSL/Linux version - run script directly in host
-    - name: Create network links between containers (WSL/Linux)
-      shell: bash {{ playbook_dir }}/create-links.sh
-      run_once: true
-      delegate_to: localhost
-      when: ansible_system == "Linux"
 
     # Configure FRR1 via CLI
     - name: Configure interfaces and BGP on FRR1

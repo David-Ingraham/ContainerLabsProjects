@@ -108,8 +108,9 @@ docker run --rm -it --privileged `
 
 1. **Topology Deployment**: Containerlab creates Docker containers and network links
 2. **Link Creation**: 
-   - macOS: Uses Alpine container with `iproute2` tools
-   - WSL/Linux: Runs `create-links.sh` directly on host
+   - Uses containerlab's own Docker image (has all tools pre-installed)
+   - Runs in privileged container with access to Docker VM network namespaces
+   - Works consistently on macOS, Windows/WSL, and native Linux
 3. **BGP Configuration**:
    - FRR1: Configured via vtysh CLI using `docker exec`
    - GoBGP1: Configured via gRPC API using `gobgp` CLI
@@ -118,13 +119,12 @@ docker run --rm -it --privileged `
 ## Platform-Specific Notes
 
 ### macOS
-- Network link creation runs in Alpine container due to missing Linux `iproute2` tools
 - Docker Desktop provides Linux VM layer
+- Ansible can be run from macOS host
 
 ### Windows/WSL
-- Ansible must run from WSL (not native Windows)
-- Network link creation runs directly in WSL environment
-- Avoids container network connectivity issues
+- Ansible must run from WSL (not native Windows PowerShell)
+- Docker Desktop bridge allows WSL to manage containers
 
 ## Troubleshooting
 
@@ -140,8 +140,8 @@ Failed to connect to the host via ssh: Connection timed out
 ```
 Solution: Ensure `gather_facts: no` in `bgp-config.yml` (Ansible uses `docker exec`, not SSH)
 
-**Containerlab link creation fails on macOS:**
-Use the `create-links.sh` script (already integrated in Ansible playbook)
+**Network links not created:**
+Verify the Ansible playbook ran successfully. The link creation task uses the containerlab Docker image which works on all platforms.
 
 ## Key Features
 
