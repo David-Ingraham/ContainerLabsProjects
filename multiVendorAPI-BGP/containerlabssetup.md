@@ -1,5 +1,7 @@
 # Containerlab Deploy Command
 
+Bash syntax:
+
 ```bash
 docker run --rm -it --privileged \
   --network host \
@@ -9,6 +11,8 @@ docker run --rm -it --privileged \
   ghcr.io/srl-labs/clab containerlab deploy -t topology.yml \
   --reconfigure
 ```
+
+Powershell syntax:
 
 ```powershell
 docker run --rm -it --privileged `
@@ -31,6 +35,8 @@ docker run --rm -it --privileged `
 
 # ContainerLab Destroy Command
 
+Bash syntax:
+
 ```bash
 docker run --rm -it --privileged \
   --network host \
@@ -39,6 +45,8 @@ docker run --rm -it --privileged \
   -w /lab \
   ghcr.io/srl-labs/clab containerlab destroy -t topology.yml
 ```
+
+Powershell syntax:
 
 ```powershell
 docker run --rm -it --privileged `
