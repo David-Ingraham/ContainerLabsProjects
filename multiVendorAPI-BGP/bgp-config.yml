@@ -1,7 +1,8 @@
 ---
 - name: Configure BGP on Multi-Vendor Lab
   hosts: all
-  gather_facts: no #tried to set to yes to make ansible_system available, but this requires ssh conenciotn to the maangment ports (172....) but the targets might not have the enabled by default. more robust solution is to use the localhost fact gathering.
+  gather_facts: no #tried to set to yes to make ansible_system available, but this requires ssh conenciotn to the maangment ports (172....) and the targets might not have ssh enabled by default.
+  #more robust solution is to use the localhost fact gathering.
   vars:
     # Network topology:
     # client1 (10.0.1.0/30) -- frr1 (10.0.1.0/30 & 10.0.2.0/30) -- gobgp1 (10.0.2.0/30 & 10.0.3.0/30) -- client2 (10.0.3.0/30)
