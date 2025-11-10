@@ -1,7 +1,7 @@
 ---
 - name: Configure BGP on Multi-Vendor Lab
   hosts: all
-  gather_facts: no
+  gather_facts: no #tried to set to yes to make ansible_system available, but this requires ssh conenciotn to the maangment ports (172....) but the targets might not have the enabled by default. more robust solution is to use the localhost fact gathering.
   vars:
     # Network topology:
     # client1 (10.0.1.0/30) -- frr1 (10.0.1.0/30 & 10.0.2.0/30) -- gobgp1 (10.0.2.0/30 & 10.0.3.0/30) -- client2 (10.0.3.0/30)
@@ -9,6 +9,12 @@
     gobgp_asn: 65002
 
   tasks:
+    # Gather facts from localhost only (for OS detection)
+    - name: Gather facts from localhost
+      setup:
+      delegate_to: localhost
+      run_once: true
+
     # Task execution order:
     # 1. Enable zebra/bgpd on FRR1 (FRR restarts)
     # 2. Create network links once (after FRR restart)
@@ -28,7 +34,8 @@
       delegate_to: localhost
 
     # Step 2: Create network links once after FRR restart
-    - name: Create network links between containers
+    # macOS version - use Docker container
+    - name: Create network links between containers (macOS)
       shell: |
         docker run --rm --privileged \
           --pid=host \
@@ -38,6 +45,14 @@
           alpine sh -c "apk add --no-cache iproute2 docker-cli && sh /workspace/create-links.sh"
       run_once: true
       delegate_to: localhost
+      when: ansible_system == "Darwin"
+
+    # WSL/Linux version - run script directly in host
+    - name: Create network links between containers (WSL/Linux)
+      shell: bash {{ playbook_dir }}/create-links.sh
+      run_once: true
+      delegate_to: localhost
+      when: ansible_system == "Linux"
 
     # Configure FRR1 via CLI
     - name: Configure interfaces and BGP on FRR1
