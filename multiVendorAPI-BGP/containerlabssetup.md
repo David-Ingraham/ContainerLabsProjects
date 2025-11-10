@@ -12,18 +12,6 @@ docker run --rm -it --privileged \
   --reconfigure
 ```
 
-Powershell syntax:
-
-```powershell
-docker run --rm -it --privileged `
-  --network host `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  -v ${PWD}:/lab `
-  -w /lab `
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml `
-  --reconfigure
-```
-
 - `docker run --rm -it --privileged` - Run containerlab in a container with full permissions
 - `--network host` - Use host network so containers can communicate
 - `-v /var/run/docker.sock:/var/run/docker.sock` - Mount Docker socket so containerlab can create containers
@@ -46,13 +34,5 @@ docker run --rm -it --privileged \
   ghcr.io/srl-labs/clab containerlab destroy -t topology.yml
 ```
 
-Powershell syntax:
 
-```powershell
-docker run --rm -it --privileged `
-  --network host `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  -v ${PWD}:/lab `
-  -w /lab `
-  ghcr.io/srl-labs/clab containerlab destroy -t topology.yml
 ```

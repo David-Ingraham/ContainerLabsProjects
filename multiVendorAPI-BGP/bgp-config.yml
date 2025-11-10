@@ -5,7 +5,8 @@
   #more robust solution is to use the localhost fact gathering.
   vars:
     # Network topology:
-    # client1 (10.0.1.0/30) -- frr1 (10.0.1.0/30 & 10.0.2.0/30) -- gobgp1 (10.0.2.0/30 & 10.0.3.0/30) -- client2 (10.0.3.0/30)
+    # client1 (10.0.1.2) -- frr1 (10.0.1.3 & 10.0.2.2) -- gobgp1 (10.0.2.3 & 10.0.3.2) -- client2 (10.0.3.3)
+    # Using /29 subnets (Docker uses .1 as gateway)
     frr1_asn: 65001
     gobgp_asn: 65002
 
@@ -47,17 +48,17 @@
         docker exec {{ inventory_hostname }} vtysh \
           -c 'configure terminal' \
           -c 'interface eth1' \
-          -c 'ip address 10.0.1.1/30' \
+          -c 'ip address 10.0.1.3/29' \
           -c 'exit' \
           -c 'interface eth2' \
-          -c 'ip address 10.0.2.1/30' \
+          -c 'ip address 10.0.2.2/29' \
           -c 'exit' \
           -c 'router bgp {{ frr1_asn }}' \
           -c 'bgp router-id 1.1.1.1' \
-          -c 'neighbor 10.0.2.2 remote-as {{ gobgp_asn }}' \
+          -c 'neighbor 10.0.2.3 remote-as {{ gobgp_asn }}' \
           -c 'address-family ipv4 unicast' \
-          -c 'neighbor 10.0.2.2 activate' \
-          -c 'network 10.0.1.0/30' \
+          -c 'neighbor 10.0.2.3 activate' \
+          -c 'network 10.0.1.0/29' \
           -c 'exit-address-family' \
           -c 'exit'
       when: "'frr1' in inventory_hostname"
@@ -66,8 +67,8 @@
     # Configure client1 interface
     - name: Configure client1 interface
       shell: |
-        docker exec {{ inventory_hostname }} ip addr add 10.0.1.2/30 dev eth1 || true
-        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.1.1 || true
+        docker exec {{ inventory_hostname }} ip addr add 10.0.1.2/29 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.1.3 || true
       when: "'client1' in inventory_hostname"
       delegate_to: localhost
 
@@ -75,11 +76,11 @@
     - name: Setup GoBGP interfaces
       shell: |
         # Configure eth1 interface with IP
-        docker exec {{ inventory_hostname }} ip addr add 10.0.2.2/30 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip addr add 10.0.2.3/29 dev eth1 || true
         docker exec {{ inventory_hostname }} ip link set eth1 up || true
         
         # Configure eth2 interface with IP
-        docker exec {{ inventory_hostname }} ip addr add 10.0.3.1/30 dev eth2 || true
+        docker exec {{ inventory_hostname }} ip addr add 10.0.3.2/29 dev eth2 || true
         docker exec {{ inventory_hostname }} ip link set eth2 up || true
       when: "'gobgp' in inventory_hostname"
       delegate_to: localhost
@@ -91,17 +92,17 @@
         docker exec {{ inventory_hostname }} gobgp global as {{ gobgp_asn }} router-id 2.2.2.2
         
         # Add BGP neighbor (FRR1)
-        docker exec {{ inventory_hostname }} gobgp neighbor add 10.0.2.1 as {{ frr1_asn }}
+        docker exec {{ inventory_hostname }} gobgp neighbor add 10.0.2.2 as {{ frr1_asn }}
         
         # Advertise network prefix with next-hop set to self (interface facing FRR1)
-        docker exec {{ inventory_hostname }} gobgp global rib add 10.0.3.0/30 nexthop 10.0.2.2
+        docker exec {{ inventory_hostname }} gobgp global rib add 10.0.3.0/29 nexthop 10.0.2.3
       when: "'gobgp' in inventory_hostname"
       delegate_to: localhost
 
     # Configure client2 interface
     - name: Configure client2 interface
       shell: |
-        docker exec {{ inventory_hostname }} ip addr add 10.0.3.2/30 dev eth1 || true
-        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.3.1 || true
+        docker exec {{ inventory_hostname }} ip addr add 10.0.3.3/29 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.3.2 || true
       when: "'client2' in inventory_hostname"
       delegate_to: localhost

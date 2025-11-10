@@ -106,15 +106,22 @@ docker run --rm -it --privileged `
 
 ## How It Works
 
-1. **Topology Deployment**: Containerlab creates Docker containers and network links
-2. **Link Creation**: 
-   - Uses containerlab's own Docker image (has all tools pre-installed)
-   - Runs in privileged container with access to Docker VM network namespaces
-   - Works consistently on macOS, Windows/WSL, and native Linux
+1. **Topology Deployment**: Containerlab creates Docker containers (link creation may fail on Docker Desktop)
+2. **Link Creation** (via Ansible playbook):
+   - Uses Docker native networking instead of veth pairs
+   - Creates /29 subnets (Docker reserves .1 IP as gateway)
+   - Connects containers using `docker network connect`
+   - Platform-independent solution (works on macOS, Windows/WSL, and Linux)
 3. **BGP Configuration**:
    - FRR1: Configured via vtysh CLI using `docker exec`
    - GoBGP1: Configured via gRPC API using `gobgp` CLI
 4. **Route Injection**: Static routes added to clients for reachability testing
+
+**Network Topology:**
+- Link 1 (10.0.1.0/29): client1 (10.0.1.2) <--> frr1 (10.0.1.3)
+- Link 2 (10.0.2.0/29): frr1 (10.0.2.2) <--> gobgp1 (10.0.2.3)
+- Link 3 (10.0.3.0/29): gobgp1 (10.0.3.2) <--> client2 (10.0.3.3)
+- Gateway IPs (.1) are reserved by Docker but unused
 
 ## Platform-Specific Notes
 
@@ -140,8 +147,24 @@ Failed to connect to the host via ssh: Connection timed out
 ```
 Solution: Ensure `gather_facts: no` in `bgp-config.yml` (Ansible uses `docker exec`, not SSH)
 
-**Network links not created:**
-Verify the Ansible playbook ran successfully. The link creation task uses the containerlab Docker image which works on all platforms.
+**Address already in use:**
+```
+Error response from daemon: Address already in use
+```
+Solution: This happens if Docker's gateway IP conflicts with container IPs. The playbook uses /29 subnets with Docker taking .1 as gateway and containers using .2 and .3. If you modify IP addresses, ensure they don't conflict with Docker's automatic gateway assignment.
+
+**Containerlab link creation fails:**
+```
+ERRO failed deploy links for node "client1": failed to Statfs "/proc/xxxx/ns/net"
+```
+This is expected on Docker Desktop - containerlab's link creation has race conditions. The Ansible playbook creates links using Docker native networking as a workaround.
+
+**BGP not establishing:**
+Check interfaces are up and have correct IPs:
+```bash
+docker exec clab-multi-vendor-api-bgp-frr1 vtysh -c "show bgp summary"
+docker exec clab-multi-vendor-api-bgp-frr1 ip addr
+```
 
 ## Key Features
 
