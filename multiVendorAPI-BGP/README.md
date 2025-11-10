@@ -69,18 +69,24 @@ cd /mnt/c/ContainerLabsProjects/multiVendorAPI-BGP
 ansible-playbook -i clab-multi-vendor-api-bgp/ansible-inventory.yml bgp-config.yml
 ```
 
-### 3. Verify BGP Sessions
+### 3. Verify BGP Sessions and Connectivity
 
 ```bash
-# Check FRR1 BGP status
+# Check FRR1 BGP status (should show Established with gobgp1)
 docker exec clab-multi-vendor-api-bgp-frr1 vtysh -c "show bgp summary"
 
-# Check GoBGP1 neighbors
+# Check GoBGP1 neighbors (should show Established with frr1)
 docker exec clab-multi-vendor-api-bgp-gobgp1 gobgp neighbor
 
-# Test connectivity
-docker exec clab-multi-vendor-api-bgp-client1 ping -c 3 10.0.3.2
+# Verify interfaces have correct IPs
+docker exec clab-multi-vendor-api-bgp-frr1 ip addr
+docker exec clab-multi-vendor-api-bgp-client1 ip addr
+
+# Test end-to-end connectivity (client1 to client2)
+docker exec clab-multi-vendor-api-bgp-client1 ping -c 3 10.0.3.3
 ```
+
+**Expected result:** Ping should succeed with 0% packet loss, confirming BGP is advertising routes correctly.
 
 ### 4. Cleanup
 
