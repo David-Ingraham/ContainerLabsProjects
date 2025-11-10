@@ -1,0 +1,105 @@
+---
+- name: Configure BGP on Multi-Vendor Lab
+  hosts: all
+  gather_facts: no
+  vars:
+    # Network topology:
+    # client1 (10.0.1.0/30) -- frr1 (10.0.1.0/30 & 10.0.2.0/30) -- gobgp1 (10.0.2.0/30 & 10.0.3.0/30) -- client2 (10.0.3.0/30)
+    frr1_asn: 65001
+    gobgp_asn: 65002
+
+  tasks:
+    # Task execution order:
+    # 1. Enable zebra/bgpd on FRR1 (FRR restarts)
+    # 2. Create network links once (after FRR restart)
+    # 3. Configure FRR1 via CLI
+    # 4. Configure GoBGP via gRPC API (gobgp CLI tool)
+    # 5. Configure client network settings
+
+    # Step 1: Enable routing daemons on FRR1
+    - name: Enable zebra and bgpd on FRR
+      shell: |
+        docker exec {{ inventory_hostname }} sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
+        docker exec {{ inventory_hostname }} sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons
+        # Send SIGHUP to reload config and start newly-enabled daemons (causes FRR restart)
+        docker exec {{ inventory_hostname }} pkill -HUP watchfrr || true
+        sleep 5
+      when: "'frr' in inventory_hostname"
+      delegate_to: localhost
+
+    # Step 2: Create network links once after FRR restart
+    - name: Create network links between containers
+      shell: |
+        docker run --rm --privileged \
+          --pid=host \
+          --network=host \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v {{ playbook_dir }}:/workspace \
+          alpine sh -c "apk add --no-cache iproute2 docker-cli && sh /workspace/create-links.sh"
+      run_once: true
+      delegate_to: localhost
+
+    # Configure FRR1 via CLI
+    - name: Configure interfaces and BGP on FRR1
+      shell: |
+        docker exec {{ inventory_hostname }} vtysh \
+          -c 'configure terminal' \
+          -c 'interface eth1' \
+          -c 'ip address 10.0.1.1/30' \
+          -c 'exit' \
+          -c 'interface eth2' \
+          -c 'ip address 10.0.2.1/30' \
+          -c 'exit' \
+          -c 'router bgp {{ frr1_asn }}' \
+          -c 'bgp router-id 1.1.1.1' \
+          -c 'neighbor 10.0.2.2 remote-as {{ gobgp_asn }}' \
+          -c 'address-family ipv4 unicast' \
+          -c 'neighbor 10.0.2.2 activate' \
+          -c 'network 10.0.1.0/30' \
+          -c 'exit-address-family' \
+          -c 'exit'
+      when: "'frr1' in inventory_hostname"
+      delegate_to: localhost
+
+    # Configure client1 interface
+    - name: Configure client1 interface
+      shell: |
+        docker exec {{ inventory_hostname }} ip addr add 10.0.1.2/30 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.1.1 || true
+      when: "'client1' in inventory_hostname"
+      delegate_to: localhost
+
+    # Configure GoBGP interfaces
+    - name: Setup GoBGP interfaces
+      shell: |
+        # Configure eth1 interface with IP
+        docker exec {{ inventory_hostname }} ip addr add 10.0.2.2/30 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip link set eth1 up || true
+        
+        # Configure eth2 interface with IP
+        docker exec {{ inventory_hostname }} ip addr add 10.0.3.1/30 dev eth2 || true
+        docker exec {{ inventory_hostname }} ip link set eth2 up || true
+      when: "'gobgp' in inventory_hostname"
+      delegate_to: localhost
+
+    # Configure BGP via gobgp CLI tool (interacts with gRPC API)
+    - name: Configure BGP on GoBGP via gobgp CLI
+      shell: |
+        # Set global BGP config (AS and router-id)
+        docker exec {{ inventory_hostname }} gobgp global as {{ gobgp_asn }} router-id 2.2.2.2
+        
+        # Add BGP neighbor (FRR1)
+        docker exec {{ inventory_hostname }} gobgp neighbor add 10.0.2.1 as {{ frr1_asn }}
+        
+        # Advertise network prefix with next-hop set to self (interface facing FRR1)
+        docker exec {{ inventory_hostname }} gobgp global rib add 10.0.3.0/30 nexthop 10.0.2.2
+      when: "'gobgp' in inventory_hostname"
+      delegate_to: localhost
+
+    # Configure client2 interface
+    - name: Configure client2 interface
+      shell: |
+        docker exec {{ inventory_hostname }} ip addr add 10.0.3.2/30 dev eth1 || true
+        docker exec {{ inventory_hostname }} ip route add 10.0.0.0/8 via 10.0.3.1 || true
+      when: "'client2' in inventory_hostname"
+      delegate_to: localhost

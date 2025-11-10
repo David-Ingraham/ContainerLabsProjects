@@ -1,0 +1,30 @@
+name: multi-vendor-api-bgp
+
+topology:
+  nodes:
+    client1:
+      kind: linux
+      image: alpine:latest
+    
+    frr1:
+      kind: linux
+      image: frrouting/frr:latest
+      ports:
+        - 2601:2601         # FRR vtysh
+    
+    gobgp1:
+      kind: linux
+      image: pierky/gobgp:latest
+      ports:
+        - 50051:50051       # gRPC API
+      cmd: /bin/sh -c "mkdir -p /etc/gobgp && gobgpd -p"
+    
+    client2:
+      kind: linux
+      image: alpine:latest
+
+  links:
+    - endpoints: ["client1:eth1", "frr1:eth1"]
+    - endpoints: ["frr1:eth2", "gobgp1:eth1"]
+    - endpoints: ["gobgp1:eth2", "client2:eth1"]
+
