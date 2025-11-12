@@ -57,17 +57,20 @@ docker run --rm -it --privileged `
 
 ### 2. Configure BGP via Ansible
 
-**macOS:**
+**Two playbook options:**
+
+**Option A: CLI-based (bgp-config.yml)**
 ```bash
 ansible-playbook -i clab-multi-vendor-api-bgp/ansible-inventory.yml bgp-config.yml
 ```
 
-**WSL:**
+**Option B: API-driven (bgp-config-api.yml) - GoBGP via REST API**
 ```bash
-wsl
-cd /mnt/c/ContainerLabsProjects/multiVendorAPI-BGP
-ansible-playbook -i clab-multi-vendor-api-bgp/ansible-inventory.yml bgp-config.yml
+ansible-playbook -i clab-multi-vendor-api-bgp/ansible-inventory.yml bgp-config-api.yml
 ```
+
+**macOS:** Run from terminal
+**WSL:** Run from WSL terminal (cd /mnt/c/ContainerLabsProjects/multiVendorAPI-BGP)
 
 ### 3. Verify BGP Sessions and Connectivity
 
@@ -172,10 +175,41 @@ docker exec clab-multi-vendor-api-bgp-frr1 vtysh -c "show bgp summary"
 docker exec clab-multi-vendor-api-bgp-frr1 ip addr
 ```
 
+## API Access
+
+**GoBGP REST API (port 8080):**
+```bash
+# Get BGP global config
+curl http://localhost:8080/v1/global
+
+# Get neighbors
+curl http://localhost:8080/v1/neighbor
+
+# Get routes
+curl http://localhost:8080/v1/global/rib
+```
+
+**GoBGP gRPC API (port 50051):**
+```python
+import grpc
+from gobgp_api import gobgp_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50051')
+stub = gobgp_pb2_grpc.GobgpApiStub(channel)
+# Make gRPC calls
+```
+
+**FRR vtysh (port 2601):**
+```bash
+docker exec clab-multi-vendor-api-bgp-frr1 vtysh
+```
+
 ## Key Features
 
 - Multi-vendor BGP demonstration (FRR + GoBGP)
-- API-driven configuration (CLI + gRPC)
+- **Two automation approaches:** CLI-based and API-driven
+- **REST API access** to GoBGP (HTTP on port 8080)
+- **gRPC API access** to GoBGP (port 50051)
 - Cross-platform support (macOS/Windows/Linux)
 - Automated with Ansible
 - Self-documenting with inline comments

@@ -16,7 +16,7 @@ Creates network connections between Docker containers using Docker's native netw
 - Uses `docker network create` to create bridge networks
 - Uses `docker network connect` to attach containers
 - Platform-independent: works identically on macOS, Windows/WSL, and native Linux
-- No PID/namespace manipulation required
+- No PID/namespace manipulation required, hanlded by docker
 
 ## Network Architecture
 
