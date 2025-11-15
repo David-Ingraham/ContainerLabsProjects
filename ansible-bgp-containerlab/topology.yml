@@ -1,0 +1,26 @@
+name: bgp-lab
+
+mgmt:
+  network: mgmt-net
+  ipv4-subnet: 10.1.1.0/24
+
+topology:
+  nodes:
+    frr1:
+      kind: linux
+      image: frrouting/frr:latest
+      mgmt-ipv4: 10.1.1.11
+      exec:
+        - sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons
+        - sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+    
+    gobgp1:
+      kind: linux
+      image: pierky/gobgp:latest
+      mgmt-ipv4: 10.1.1.12
+      cmd: gobgpd -f /dev/null
+
+  links:
+    - endpoints: ["frr1:eth1", "gobgp1:eth1"]
+

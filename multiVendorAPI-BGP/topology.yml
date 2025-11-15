@@ -17,8 +17,7 @@ topology:
       image: pierky/gobgp:latest
       ports:
         - 50051:50051       # gRPC API
-        - 8080:8080         # REST API
-      cmd: /bin/sh -c "mkdir -p /etc/gobgp && gobgpd -p --api-hosts=:8080"
+      cmd: gobgpd -f /dev/null
     
     client2:
       kind: linux
