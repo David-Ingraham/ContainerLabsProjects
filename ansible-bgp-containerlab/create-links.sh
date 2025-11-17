@@ -22,6 +22,14 @@ echo "Checking for conflicting networks..."
 for net in $(docker network ls --format "{{.Name}}"); do
     if docker network inspect $net 2>/dev/null | grep -q "10.0.1.0"; then
         echo "  Removing conflicting network: $net"
+        
+        # Disconnect all containers from the conflicting network first
+        for container in $(docker network inspect $net --format '{{range .Containers}}{{.Name}} {{end}}'); do
+            echo "    Disconnecting container: $container"
+            docker network disconnect $net $container 2>/dev/null || true
+        done
+        
+        # Now remove the network
         docker network rm $net 2>/dev/null || true
     fi
 done
@@ -44,4 +52,3 @@ echo "  gobgp1:         10.0.1.3/29"
 echo ""
 echo "Verifying connectivity..."
 docker exec $FRR1 ping -c 2 10.0.1.3 || echo "Note: Ping may fail until routing is configured"
-
