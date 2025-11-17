@@ -16,12 +16,19 @@ RUN apt-get update && \
 
 # Install Python packages for network automation
 RUN pip install --no-cache-dir \
+    --trusted-host pypi.org \
+    --trusted-host pypi.python.org \
+    --trusted-host files.pythonhosted.org \
     ansible \
     grpcio \
     grpcio-tools \
     protobuf \
     netmiko \
     paramiko
+
+# Install Ansible collections for network devices
+RUN ansible-galaxy collection install frr.frr \
+    && ansible-galaxy collection install ansible.netcommon
 
 # Clone GoBGP repository and generate Python gRPC stubs
 RUN git clone --depth 1 https://github.com/osrg/gobgp.git /tmp/gobgp && \
