@@ -1,0 +1,95 @@
+#!/bin/bash
+# Complete lab setup: build image, deploy containers, configure infrastructure
+
+set -e
+
+PROJECT_DIR="/Users/davidingraham/Desktop/personal_projects/networkAutomation/ContainerLabsProjects/ansible-bgp-containerlab"
+IMAGE_NAME="network-automation:latest"
+LAB_NAME="bgp-lab"
+
+cd "$PROJECT_DIR"
+
+echo "=========================================="
+echo "BGP Lab Infrastructure Setup"
+echo "=========================================="
+
+# Step 1: Check if custom image exists, build if needed
+echo ""
+echo "=== Step 1: Docker Image ==="
+if docker images | grep -q "network-automation.*latest"; then
+    echo "✓ Image $IMAGE_NAME already exists"
+else
+    echo "Building $IMAGE_NAME (one-time operation)..."
+    docker build -f Dockerfile.automation -t $IMAGE_NAME .
+    echo "✓ Image built successfully"
+fi
+
+# Step 2: Deploy lab (destroy if running to ensure latest topology)
+echo ""
+echo "=== Step 2: Lab Deployment ==="
+if docker ps | grep -q "clab-$LAB_NAME"; then
+    echo "Existing lab detected - destroying to ensure latest topology..."
+    docker run --rm -it --privileged \
+      --network host \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $(pwd):/lab \
+      -w /lab \
+      ghcr.io/srl-labs/clab containerlab destroy -t topology.yml --cleanup
+    echo "✓ Old lab destroyed"
+fi
+
+echo "Deploying fresh lab..."
+docker run --rm -it --privileged \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd):/lab \
+  -w /lab \
+  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml
+echo "✓ Lab deployed"
+
+# Step 3: Wait for containers to stabilize
+echo ""
+echo "=== Step 3: Container Stabilization ==="
+echo "Waiting for containers to be ready..."
+sleep 5
+echo "✓ Containers ready"
+
+# Step 4: Configure data plane interfaces
+echo ""
+echo "=== Step 4: Data Plane Configuration ==="
+echo "Configuring interface IPs on eth1..."
+chmod +x create-links.sh
+./create-links.sh
+echo "✓ Data plane configured"
+
+# Step 5: Copy configuration files to automation container
+echo ""
+echo "=== Step 5: Configuration Files ==="
+echo "Copying files to automation container..."
+docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>/dev/null || true
+
+docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
+docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
+docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
+
+echo "✓ Files copied"
+
+# Final status
+echo ""
+echo "=========================================="
+echo "Infrastructure Setup Complete!"
+echo "=========================================="
+echo ""
+echo "Lab Status:"
+echo "  • Management Network: 10.1.1.0/24"
+echo "  • Automation:  10.1.1.10 (tools ready)"
+echo "  • FRR1:        10.1.1.11 (SSH enabled)"
+echo "  • GoBGP1:      10.1.1.12 (gRPC API ready)"
+echo "  • Data Plane:  frr1:10.0.1.1 <-> gobgp1:10.0.1.2"
+echo ""
+echo "Next Step - Configure BGP:"
+echo "  docker exec -it clab-$LAB_NAME-automation bash"
+echo "  cd /workspace"
+echo "  ansible-playbook -i inventory.yml config_playbook.yml"
+echo ""
+

@@ -6,6 +6,11 @@ mgmt:
 
 topology:
   nodes:
+    automation:
+      kind: linux
+      image: network-automation:latest
+      mgmt-ipv4: 10.1.1.10
+    
     frr1:
       kind: linux
       image: frrouting/frr:latest
@@ -14,13 +19,22 @@ topology:
         - sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons
         - sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
         - /usr/lib/frr/frrinit.sh start
+        - apk add --no-cache openssh-server
+        - mkdir -p /etc/ssh
+        - ssh-keygen -A
+        - sh -c "echo 'root:admin123' | chpasswd"
+        - sh -c "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config"
+        - sh -c "echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config"
+        - /usr/sbin/sshd
     
     gobgp1:
       kind: linux
-      image: pierky/gobgp:latest
+      image: jauderho/gobgp:latest
       mgmt-ipv4: 10.1.1.12
-      cmd: gobgpd -f /dev/null
+      cmd: gobgpd --api-hosts=:50051 --log-plain
 
-  links:
-    - endpoints: ["frr1:eth1", "gobgp1:eth1"]
+  # Links commented out - ContainerLab link creation fails on macOS
+  # Data plane connectivity created by create-links.sh using Docker networks
+  # links:
+  #   - endpoints: ["frr1:eth1", "gobgp1:eth1"]
 

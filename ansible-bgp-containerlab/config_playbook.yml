@@ -1,0 +1,61 @@
+---
+# BGP Configuration Playbook
+# Infrastructure (interfaces, IPs) already configured by setup.sh
+# This playbook only handles BGP protocol configuration
+
+- name: Configure GoBGP via gRPC API
+  hosts: localhost
+  gather_facts: no
+  
+  tasks:
+    - name: Configure GoBGP BGP settings via Python gRPC
+      command: python3 /workspace/configure_gobgp.py
+      register: gobgp_result
+      
+    - name: Display GoBGP configuration result
+      debug:
+        var: gobgp_result.stdout_lines
+
+- name: Configure FRR via SSH Network Module
+  hosts: frr_routers
+  gather_facts: no
+  
+  tasks:
+    - name: Configure BGP on FRR
+      ansible.netcommon.cli_command:
+        command: "{{ item }}"
+      loop:
+        - configure terminal
+        - router bgp {{ bgp_as }}
+        - bgp router-id {{ bgp_router_id }}
+        - neighbor {{ bgp_neighbor_ip }} remote-as {{ bgp_neighbor_as }}
+        - address-family ipv4 unicast
+        - neighbor {{ bgp_neighbor_ip }} activate
+        - network {{ advertise_network }}
+        - exit-address-family
+        - exit
+        - exit
+        - write memory
+      
+    - name: Wait for BGP session to establish
+      pause:
+        seconds: 10
+        
+    - name: Verify BGP neighbor status
+      ansible.netcommon.cli_command:
+        command: show bgp summary
+      register: bgp_status
+      
+    - name: Display BGP status
+      debug:
+        var: bgp_status.stdout_lines
+        
+    - name: Show BGP routes
+      ansible.netcommon.cli_command:
+        command: show bgp ipv4 unicast
+      register: bgp_routes
+      
+    - name: Display BGP routes
+      debug:
+        var: bgp_routes.stdout_lines
+

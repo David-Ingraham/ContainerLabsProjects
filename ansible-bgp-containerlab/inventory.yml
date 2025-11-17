@@ -1,0 +1,25 @@
+all:
+  children:
+    routers:
+      children:
+        frr_routers:
+          hosts:
+            frr1:
+              ansible_host: 10.1.1.11
+              ansible_network_os: frr
+              ansible_connection: network_cli
+              ansible_user: root
+              ansible_password: admin123
+              bgp_as: 65001
+              bgp_router_id: 1.1.1.1
+              bgp_neighbor_ip: 10.0.1.2
+              bgp_neighbor_as: 65002
+              advertise_network: 10.1.0.0/24
+        
+        gobgp_routers:
+          hosts:
+            gobgp1:
+              ansible_host: 10.1.1.12
+              bgp_as: 65002
+              bgp_router_id: 2.2.2.2
+

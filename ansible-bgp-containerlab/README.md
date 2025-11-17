@@ -26,26 +26,49 @@ BGP lab using ContainerLab with static management network addressing.
 **Data Plane:**
 - Link between frr1:eth1 and gobgp1:eth1
 
-## Deploy
+## What's Included
+
+**Topology (topology.yml):**
+- Automation container with Python, Ansible, gRPC tools
+- FRR router with SSH enabled
+- GoBGP router with gRPC API
+
+**Configuration Tools:**
+- `create-links.sh` - Configure data plane interfaces
+- `configure_gobgp.py` - Python script using gRPC to configure GoBGP
+- `config_playbook.yml` - Ansible playbook orchestrating configuration
+- `inventory.yml` - Ansible inventory with router details
+
+**Setup Flow (Infrastructure):**
+1. Build custom Docker image with Ansible/Python/gRPC tools
+2. Deploy ContainerLab topology (creates containers and management network)
+3. Configure data plane interface IPs (eth1 on both routers)
+4. Copy configuration files to automation container
+
+**Configuration Flow (BGP Protocol):**
+1. Ansible runs from automation container
+2. Configures GoBGP via Python gRPC API (AS, router-id, neighbor, routes)
+3. Configures FRR via SSH using network_cli (AS, router-id, neighbor, routes)
+4. BGP peering established between routers
+
+## Quick Start
+
+See [HOWTO.md](HOWTO.md) for detailed instructions.
 
 ```bash
-docker run --rm -it --privileged \
-  --network host \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v $(pwd):/lab \
-  -w /lab \
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml
+# 1. Setup infrastructure (one command does everything)
+chmod +x setup.sh
+./setup.sh
+
+# 2. Configure BGP from automation container
+docker exec -it clab-bgp-lab-automation bash
+cd /workspace
+ansible-playbook -i inventory.yml config_playbook.yml
 ```
 
-## Access Routers
-
-Devices are reachable at their management IPs:
-- frr1: `10.1.1.11`
-- gobgp1: `10.1.1.12:50051` (gRPC API)
-
-## Configure
-
-Configure routers programmatically using Python/Ansible against their management IPs.
-
-No port forwarding needed - all routers on same management network.
+The `setup.sh` script handles:
+- Building custom Docker image (one-time)
+- Deploying ContainerLab topology
+- Configuring data plane interfaces
+- Copying configuration files
 
