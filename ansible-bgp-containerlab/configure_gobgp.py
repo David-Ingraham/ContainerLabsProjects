@@ -23,30 +23,15 @@ def configure_gobgp(router_ip, as_number, router_id, neighbor_ip, neighbor_as, a
     """
     print(f"Connecting to GoBGP at {router_ip}:50051...")
     
-    # Connect to gRPC API
+    # Connect to gRPC API with timeout
     channel = grpc.insecure_channel(f'{router_ip}:50051')
     stub = gobgp_pb2_grpc.GoBgpServiceStub(channel)
     
     try:
-        # Check if BGP is already running
-        try:
-            bgp_status = stub.GetBgp(gobgp_pb2.GetBgpRequest())
-            bgp_global = getattr(bgp_status, 'global')
-            print(f"BGP already running (AS {bgp_global.asn}, Router-ID {bgp_global.router_id})")
-            if bgp_global.asn != as_number or bgp_global.router_id != router_id:
-                print(f"  Configuration mismatch! Stopping and reconfiguring...")
-                stub.StopBgp(gobgp_pb2.StopBgpRequest())
-                bgp_exists = False
-            else:
-                print("  Configuration matches, skipping StartBgp")
-                bgp_exists = True
-        except grpc.RpcError:
-            bgp_exists = False
+        # Try to start BGP - if it's already running, we'll get an error we can handle
+        print(f"Starting BGP with AS {as_number}, Router-ID {router_id}...")
         
-        # Configure global BGP settings if not already configured
-        if not bgp_exists:
-            print(f"Setting AS {as_number}, Router-ID {router_id}...")
-            
+        try:
             # Create the Global config object
             global_obj = gobgp_pb2.Global()
             global_obj.asn = as_number
@@ -56,8 +41,14 @@ def configure_gobgp(router_ip, as_number, router_id, neighbor_ip, neighbor_as, a
             global_config = gobgp_pb2.StartBgpRequest()
             getattr(global_config, 'global').CopyFrom(global_obj)
             
-            stub.StartBgp(global_config)
-            print("  Global config set")
+            stub.StartBgp(global_config, timeout=5)
+            print("  BGP started successfully")
+        except grpc.RpcError as e:
+            if "already" in str(e).lower():
+                print("  BGP already running, continuing with configuration...")
+            else:
+                print(f"  Warning starting BGP: {e.code()} - {e.details()}")
+                print("  Attempting to continue...")
         
         # Add BGP neighbor (check if already exists first)
         print(f"Adding neighbor {neighbor_ip} (AS {neighbor_as})...")
