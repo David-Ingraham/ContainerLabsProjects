@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir \
     ansible \
     grpcio \
     grpcio-tools \
-    protobuf \
+    protobuf \ 
     netmiko \
     paramiko
 
