@@ -31,7 +31,7 @@ topology:
       kind: linux
       image: jauderho/gobgp:latest
       mgmt-ipv4: 10.1.1.12
-      cmd: gobgpd --api-hosts=:50051 --log-plain
+      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
 
   # Links commented out - ContainerLab link creation fails on macOS
   # Data plane connectivity created by create-links.sh using Docker networks
