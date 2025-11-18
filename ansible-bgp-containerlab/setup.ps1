@@ -93,6 +93,10 @@ docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
 docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
 docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
 
+docker exec clab-$LAB_NAME-automation mkdir -p /root/.ssh
+
+docker exec clab-$LAB_NAME-automation sh -c "ssh-keyscan 10.1.1.11 >> /root/.ssh/known_hosts"
+
 Write-Host "[OK] Files copied" -ForegroundColor Green
 
 # Final status
