@@ -19,7 +19,8 @@ topology:
         - sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons
         - sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
         - /usr/lib/frr/frrinit.sh start
-        - apk add --no-cache openssh-server
+        - sed -i 's/https/http/g' /etc/apk/repositories #bypass ssl verification for package installations
+        - apk add --no-cache --allow-untrusted openssh-server openssh-keygen openssh-client
         - mkdir -p /etc/ssh
         - ssh-keygen -A
         - sh -c "echo 'root:admin123' | chpasswd"
