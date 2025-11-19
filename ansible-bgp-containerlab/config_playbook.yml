@@ -17,6 +17,19 @@
       debug:
         var: gobgp_result.stdout_lines
 
+- name: Prepare FRR for Ansible Access
+  hosts: localhost
+  gather_facts: no
+  
+  tasks:
+    - name: Create FRR user with vtysh shell for network_cli
+      command: /workspace/prepare_frr_user.sh 10.1.1.11
+      register: frr_prep_result
+      
+    - name: Display FRR preparation result
+      debug:
+        var: frr_prep_result.stdout_lines
+
 - name: Configure FRR via frr_bgp Module
   hosts: frr_routers
   gather_facts: no
