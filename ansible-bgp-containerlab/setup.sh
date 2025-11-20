@@ -72,6 +72,7 @@ docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
 docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
 docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
 docker cp prepare_frr_user.sh clab-$LAB_NAME-automation:/workspace/
+docker exec clab-$LAB_NAME-automation chmod +x /workspace/prepare_frr_user.sh
 
 docker exec clab-$LAB_NAME-automation mkdir -p /root/.ssh
 
