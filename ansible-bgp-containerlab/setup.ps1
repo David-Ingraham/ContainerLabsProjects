@@ -109,9 +109,9 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Lab Status:" -ForegroundColor Green
 Write-Host "  - Management Network: 10.1.1.0/24"
-Write-Host "  - Automation:  10.1.1.10 (tools ready)"
-Write-Host "  - FRR1:        10.1.1.11 (SSH enabled)"
-Write-Host "  - GoBGP1:      10.1.1.12 (gRPC API ready)"
+Write-Host "  - Automation:  10.1.1.10 "
+Write-Host "  - FRR1:        10.1.1.11 "
+Write-Host "  - GoBGP1:      10.1.1.12 "
 Write-Host "  - Data Plane:  frr1:10.0.1.2 to gobgp1:10.0.1.3"
 Write-Host ""
 Write-Host "Next Step - Configure BGP:" -ForegroundColor Yellow
