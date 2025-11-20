@@ -23,7 +23,7 @@
   
   tasks:
     - name: Create FRR user with vtysh shell for network_cli
-      command: /workspace/prepare_frr_user.sh 10.1.1.11
+      command: /workspace/prepare_frr_user.sh 
       register: frr_prep_result
       
     - name: Display FRR preparation result
@@ -44,24 +44,15 @@
           bgp_as: "{{ bgp_as }}"
           router_id: "{{ bgp_router_id }}"
           log_neighbor_changes: true
-          
           neighbors:
             - neighbor: "{{ bgp_neighbor_ip }}"
               remote_as: "{{ bgp_neighbor_as }}"
               timers:
                 keepalive: 30
                 holdtime: 90
-              description: "BGP peer to GoBGP"
-          
-          address_family:
-            - afi: ipv4
-              safi: unicast
-              neighbors:
-                - neighbor: "{{ bgp_neighbor_ip }}"
-                  activate: true
-              networks:
-                - prefix: "{{ advertise_network.split('/')[0] }}"
-                  masklen: "{{ advertise_network.split('/')[1] | int }}"
+          networks:
+            - prefix: "{{ advertise_network.split('/')[0] }}"
+              masklen: "{{ advertise_network.split('/')[1] | int }}"
         operation: merge
       register: bgp_config_result
       
