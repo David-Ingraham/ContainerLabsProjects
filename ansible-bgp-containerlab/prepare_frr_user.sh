@@ -39,7 +39,7 @@ sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "to
 sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "chown frr:frr /etc/frr/bgpd.conf"
 sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "chmod 640 /etc/frr/bgpd.conf"
 sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "/usr/lib/frr/bgpd -d -F traditional -A 127.0.0.1"
-
+ 
 
 if [ "$SHELL_CHECK" = "/usr/bin/vtysh" ]; then
     echo ""
