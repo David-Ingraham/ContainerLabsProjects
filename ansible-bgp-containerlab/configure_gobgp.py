@@ -9,7 +9,7 @@ import sys
 from api import gobgp_pb2, gobgp_pb2_grpc, attribute_pb2, nlri_pb2, common_pb2
 from google.protobuf.any_pb2 import Any
 
-def configure_gobgp(router_ip, as_number, router_id, neighbor_ip, neighbor_as, advertise_prefix):
+def configure_gobgp(router_ip, as_number, router_id, self_ip, neighbor_ip, neighbor_as, advertise_prefix):
     """
     Configure GoBGP router via gRPC API
     
@@ -17,6 +17,7 @@ def configure_gobgp(router_ip, as_number, router_id, neighbor_ip, neighbor_as, a
         router_ip: Management IP of GoBGP router
         as_number: Local AS number
         router_id: BGP router ID
+        self_ip: Local IP on data plane (used as next-hop)
         neighbor_ip: BGP neighbor IP address
         neighbor_as: BGP neighbor AS number
         advertise_prefix: Network prefix to advertise (CIDR notation)
@@ -93,7 +94,7 @@ def configure_gobgp(router_ip, as_number, router_id, neighbor_ip, neighbor_as, a
         
         next_hop_attr = attribute_pb2.Attribute()
         next_hop_attr.next_hop.CopyFrom(
-            attribute_pb2.NextHopAttribute(next_hop=neighbor_ip)
+            attribute_pb2.NextHopAttribute(next_hop=self_ip)
         )
         
         # Create Family for IPv4 Unicast
@@ -129,6 +130,7 @@ if __name__ == "__main__":
         router_ip="10.1.1.12",
         as_number=65002,
         router_id="2.2.2.2",
+        self_ip="10.0.1.3",  # GoBGP's own IP on data plane (used as next-hop)
         neighbor_ip="10.0.1.2",  # FRR1 on data plane
         neighbor_as=65001,
         advertise_prefix="10.2.0.0/24"  # Example prefix from GoBGP
