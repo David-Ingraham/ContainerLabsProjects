@@ -60,6 +60,23 @@
       debug:
         var: bgp_config_result.commands
       when: bgp_config_result.changed
+    
+    - name: Configure route-map to permit all routes
+      ansible.netcommon.cli_config:
+        config: |
+          route-map PERMIT-ALL permit 10
+          exit
+          router bgp {{ bgp_as }}
+           address-family ipv4 unicast
+            neighbor {{ bgp_neighbor_ip }} route-map PERMIT-ALL in
+            neighbor {{ bgp_neighbor_ip }} route-map PERMIT-ALL out
+           exit-address-family
+      register: routemap_result
+    
+    - name: Display route-map configuration
+      debug:
+        msg: "Route-map PERMIT-ALL configured for neighbor {{ bgp_neighbor_ip }}"
+      when: routemap_result.changed
       
     - name: Wait for BGP session to establish
       pause:
