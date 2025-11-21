@@ -41,6 +41,10 @@ sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "ch
 sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "/usr/lib/frr/bgpd -d -F traditional -A 127.0.0.1"
  
 
+sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "touch /etc/frr/vtysh.conf"
+sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "chown frr:frr /etc/frr/vtysh.conf"
+sshpass -p ${FRR_ROOT_PASS} ssh -o StrictHostKeyChecking=no root@${FRR_HOST} "chmod 640 /etc/frr/vtysh.conf"
+
 if [ "$SHELL_CHECK" = "/usr/bin/vtysh" ]; then
     echo ""
     echo "=========================================="
