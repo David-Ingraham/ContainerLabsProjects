@@ -1,0 +1,8 @@
+Peer        AS  Up/Down State       |#Received  Accepted
+10.0.1.2 65001 00:02:16 Establ      |        1         0
+   Network              Next Hop             AS_PATH              Age        Attrs
+*  10.2.0.0/24          10.0.1.3                                  20414d 20:24:09 [{Origin: i}]
+   ID  Network              Next Hop             AS_PATH              Age        Attrs
+   0   10.2.0.0/24          10.0.1.2             65001 65002          00:02:15   [{Origin: i}]
+   ID  Network              Next Hop             AS_PATH              AttrsFiltered
+   1   10.2.0.0/24          10.0.1.3             65002                [{Origin: i}]not filtered
