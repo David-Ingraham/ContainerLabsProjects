@@ -65,6 +65,11 @@ docker network create --subnet=10.2.0.0/24 gobgp-network 2>/dev/null || true
 docker network connect --ip 10.2.0.2 gobgp-network $GOBGP1 2>/dev/null || true
 docker network connect --ip 10.2.0.10 gobgp-network clab-bgp-lab-host2 2>/dev/null || true
 
+#deleting the default route given to it by docker
+docker exec clab-bgp-lab-host1 ip route del default 2>/dev/null || true
+docker exec clab-bgp-lab-host2 ip route del default 2>/dev/null || true
+
+
 docker exec clab-bgp-lab-host1 ip route add default via 10.1.0.2 2>/dev/null || true
 docker exec clab-bgp-lab-host2 ip route add default via 10.2.0.2 2>/dev/null || true
 echo "Backend networks configured (FRR: 10.1.0.2, GoBGP: 10.2.0.2)"
