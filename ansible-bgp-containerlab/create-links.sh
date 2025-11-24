@@ -56,14 +56,15 @@ docker exec $FRR1 ping -c 2 10.0.1.3 || echo "Note: Ping may fail until routing 
 # Create backend networks for BGP route advertisement
 echo ""
 echo "Creating backend networks..."
+# Note: Docker reserves .1 for bridge gateway, so we use .2 for routers
 docker network create --subnet=10.1.0.0/24 frr-network 2>/dev/null || true
-docker network connect --ip 10.1.0.1 frr-network $FRR1 2>/dev/null || true
+docker network connect --ip 10.1.0.2 frr-network $FRR1 2>/dev/null || true
 docker network connect --ip 10.1.0.10 frr-network clab-bgp-lab-host1 2>/dev/null || true
 
 docker network create --subnet=10.2.0.0/24 gobgp-network 2>/dev/null || true
-docker network connect --ip 10.2.0.1 gobgp-network $GOBGP1 2>/dev/null || true
+docker network connect --ip 10.2.0.2 gobgp-network $GOBGP1 2>/dev/null || true
 docker network connect --ip 10.2.0.10 gobgp-network clab-bgp-lab-host2 2>/dev/null || true
 
-docker exec clab-bgp-lab-host1 ip route add default via 10.1.0.1 2>/dev/null || true
-docker exec clab-bgp-lab-host2 ip route add default via 10.2.0.1 2>/dev/null || true
-echo "Backend networks configured (10.1.0.0/24, 10.2.0.0/24)"
+docker exec clab-bgp-lab-host1 ip route add default via 10.1.0.2 2>/dev/null || true
+docker exec clab-bgp-lab-host2 ip route add default via 10.2.0.2 2>/dev/null || true
+echo "Backend networks configured (FRR: 10.1.0.2, GoBGP: 10.2.0.2)"
