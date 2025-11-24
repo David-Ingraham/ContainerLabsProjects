@@ -71,6 +71,63 @@ def configure_gobgp(router_ip, as_number, router_id, self_ip, neighbor_ip, neigh
         stub.AddPeer(neighbor)
         print("  Neighbor added")
         
+        # Configure import/export policy to accept all routes
+        print("Configuring import/export policy...")
+        try:
+            # Create a simple statement that accepts all routes
+            statement = gobgp_pb2.Statement(
+                name="accept-all-stmt",
+                actions=gobgp_pb2.Actions(
+                    route_action=gobgp_pb2.RouteAction.ROUTE_ACTION_ACCEPT
+                )
+            )
+            
+            # Create the policy with the statement
+            policy = gobgp_pb2.Policy(
+                name="accept-all",
+                statements=[statement]
+            )
+            
+            # Try to delete existing policy first
+            try:
+                stub.DeletePolicy(gobgp_pb2.DeletePolicyRequest(
+                    policy=policy,
+                    preserve_statements=False
+                ))
+            except grpc.RpcError:
+                pass  # Policy didn't exist
+            
+            # Add the policy
+            stub.AddPolicy(gobgp_pb2.AddPolicyRequest(
+                policy=policy,
+                refer_existing_statements=False
+            ))
+            
+            # Apply import policy to the neighbor
+            stub.AddPolicyAssignment(gobgp_pb2.AddPolicyAssignmentRequest(
+                assignment=gobgp_pb2.PolicyAssignment(
+                    name=neighbor_ip,
+                    direction=gobgp_pb2.PolicyDirection.POLICY_DIRECTION_IMPORT,
+                    policies=[policy],
+                    default_action=gobgp_pb2.RouteAction.ROUTE_ACTION_ACCEPT
+                )
+            ))
+            
+            # Apply export policy to the neighbor  
+            stub.AddPolicyAssignment(gobgp_pb2.AddPolicyAssignmentRequest(
+                assignment=gobgp_pb2.PolicyAssignment(
+                    name=neighbor_ip,
+                    direction=gobgp_pb2.PolicyDirection.POLICY_DIRECTION_EXPORT,
+                    policies=[policy],
+                    default_action=gobgp_pb2.RouteAction.ROUTE_ACTION_ACCEPT
+                )
+            ))
+            
+            print("  Import/Export policy configured (accept-all)")
+        except grpc.RpcError as e:
+            print(f"  Warning configuring policy: {e.details()}")
+            print("  Continuing without policy (may reject routes)...")
+        
         # Advertise prefix
         print(f"Advertising prefix {advertise_prefix}...")
         prefix_parts = advertise_prefix.split('/')
