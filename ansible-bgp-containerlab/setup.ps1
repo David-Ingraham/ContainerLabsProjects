@@ -84,6 +84,11 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Warning: Data plane configuration had issues, but continuing..." -ForegroundColor Yellow
 }
 
+# enabling ip forwarding in kernel of gobgp1
+docker run --rm --network container:clab-bgp-lab-gobgp1 --privileged alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
+
+Write-Host "[OK] IP forwarding enabled on gobgp1" -ForegroundColor Green
+
 # Step 5: Copy configuration files to automation container
 Write-Host ""
 Write-Host "=== Step 5: Configuration Files ===" -ForegroundColor Yellow
@@ -122,7 +127,4 @@ Write-Host "    - FRR1:   10.1.0.2/24 (host1: 10.1.0.10)"
 Write-Host "    - GoBGP1: 10.2.0.2/24 (host2: 10.2.0.10)"
 Write-Host ""
 Write-Host " Configure BGP:" -ForegroundColor Yellow
-Write-Host "  docker exec -it clab-$LAB_NAME-automation bash"
-Write-Host "  cd /workspace"
-Write-Host "  ansible-playbook -i inventory.yml config_playbook.yml"
-Write-Host ""
+Write-Host "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"

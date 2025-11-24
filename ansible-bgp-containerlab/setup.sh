@@ -54,6 +54,7 @@ echo "Waiting for containers to be ready..."
 sleep 5
 echo "✓ Containers ready"
 
+
 # Step 4: Configure data plane interfaces
 echo ""
 echo "=== Step 4: Data Plane Configuration ==="
@@ -61,6 +62,11 @@ echo "Configuring interface IPs on eth1..."
 chmod +x create-links.sh
 ./create-links.sh
 echo "✓ Data plane configured"
+
+
+# enabling ip forwarding in kernel of gobgp1
+docker run --rm --network container:clab-bgp-lab-gobgp1 --privileged alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
+
 
 # Step 5: Copy configuration files to automation container
 echo ""
