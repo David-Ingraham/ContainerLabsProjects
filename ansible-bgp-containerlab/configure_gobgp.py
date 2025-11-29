@@ -190,7 +190,7 @@ if __name__ == "__main__":
         self_ip="10.0.1.3",  # GoBGP's own IP on data plane (used as next-hop)
         neighbor_ip="10.0.1.2",  # FRR1 on data plane
         neighbor_as=65001,
-        advertise_prefix="10.2.0.0/24"  # Example prefix from GoBGP
+        advertise_prefix="10.2.0.0/24"  
     )
     
     sys.exit(0 if success else 1)
