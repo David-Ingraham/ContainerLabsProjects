@@ -35,7 +35,7 @@ BGP Configuration:
 
 ### Automation Container
 
-Defined in Dockerfile.automation:
+Defined in [Dockerfile.automation](Dockerfile.automation):
 - Base image: python:3.11-slim
 - System packages: openssh-client, sshpass, iputils-ping, iproute2, curl, vim, git
 - Python packages: ansible, grpcio, grpcio-tools, protobuf, netmiko, paramiko
@@ -45,7 +45,7 @@ Defined in Dockerfile.automation:
 
 ### Topology File
 
-topology.yml defines network devices:
+[topology.yml](topology.yml) defines network devices:
 - Management network configuration
 - Container images and management IPs for each node
 - FRR initial configuration:
@@ -62,7 +62,7 @@ topology.yml defines network devices:
 
 ### Inventory File
 
-inventory.yml structure:
+[inventory.yml](inventory.yml) structure:
 - FRR routers group:
   - Uses network_cli connection type
   - Credentials: frruser/admin123
@@ -73,7 +73,7 @@ inventory.yml structure:
 
 ## Setup Process
 
-### Entry Point: setup.sh (or setup.ps1 for Windows)
+### Entry Point: [setup.sh](setup.sh) (or [setup.ps1](setup.ps1) for Windows)
 
 1. Check if automation container image exists, build if needed
 
@@ -83,7 +83,7 @@ inventory.yml structure:
 
 3. Wait for containers to stabilize (5 seconds)
 
-4. Configure data plane with create-links.sh
+4. Configure data plane with [create-links.sh](create-links.sh)
 
 5. Enable IP forwarding in GoBGP container kernel
    - Uses Alpine container in gobgp1 network namespace
@@ -92,14 +92,14 @@ inventory.yml structure:
    - Required because gobgp image only contains daemon with no shell
 
 6. Copy files to automation container:
-   - configure_gobgp.py
-   - config_playbook.yml
-   - inventory.yml
-   - prepare_frr_user.sh (with execute permissions)
+   - [configure_gobgp.py](configure_gobgp.py)
+   - [config_playbook.yml](config_playbook.yml)
+   - [inventory.yml](inventory.yml)
+   - [prepare_frr_user.sh](prepare_frr_user.sh) (with execute permissions)
 
 7. Add FRR1 IP to known_hosts in automation container
 
-### Data Plane Configuration: create-links.sh
+### Data Plane Configuration: [create-links.sh](create-links.sh)
 
 Series of docker network commands:
 - Cleans up networks and links from previous runs
@@ -126,13 +126,13 @@ After infrastructure setup completes, run configuration playbook:
 docker exec -it clab-bgp-lab-automation ansible-playbook -i inventory.yml config_playbook.yml
 ```
 
-### Configuration Playbook: config_playbook.yml
+### Configuration Playbook: [config_playbook.yml](config_playbook.yml)
 
 Executes three main tasks:
 
 #### Task 1: Configure GoBGP via Python/gRPC
 
-Runs configure_gobgp.py:
+Runs [configure_gobgp.py](configure_gobgp.py):
 - Uses compiled gRPC stubs from automation image build
 - Connects to gRPC server on 10.1.1.12:50051
 - Sets router ID: 2.2.2.2
@@ -150,7 +150,7 @@ Runs configure_gobgp.py:
 
 #### Task 2: Prepare FRR User
 
-Runs prepare_frr_user.sh:
+Runs [prepare_frr_user.sh](prepare_frr_user.sh):
 - Ansible frr.frr module requires specifically configured user
 - Uses vtysh shell (Cisco-like CLI for FRR)
 - Helper function executes all commands in single SSH session
@@ -180,7 +180,7 @@ Uses frr.frr.frr_bgp module:
 
 ### Quick GoBGP Status Check
 
-checkGobgpStatus.sh provides quick status:
+[checkGobgpStatus.sh](checkGobgpStatus.sh) provides quick status:
 
 ```bash
 ./checkGobgpStatus.sh
@@ -194,7 +194,7 @@ Shows:
 
 ### Comprehensive Verification
 
-verify-bgp.sh performs full verification:
+[verify-bgp.sh](verify-bgp.sh) performs full verification:
 
 ```bash
 ./verify-bgp.sh
@@ -308,16 +308,16 @@ docker run --rm -it --privileged `
 
 ## File Overview
 
-- topology.yml: ContainerLab topology definition
-- Dockerfile.automation: Custom automation container image
-- inventory.yml: Ansible inventory with router variables
-- configure_gobgp.py: Python script for GoBGP gRPC configuration
-- config_playbook.yml: Ansible playbook orchestrating configuration
-- prepare_frr_user.sh: Script to prepare FRR container for Ansible
-- setup.sh: Main setup script (Linux/macOS)
-- setup.ps1: Main setup script (Windows PowerShell)
-- create-links.sh: Data plane network configuration
-- verify-bgp.sh: Comprehensive BGP verification script
-- checkGobgpStatus.sh: Quick GoBGP status check
+- [topology.yml](topology.yml): ContainerLab topology definition
+- [Dockerfile.automation](Dockerfile.automation): Custom automation container image
+- [inventory.yml](inventory.yml): Ansible inventory with router variables
+- [configure_gobgp.py](configure_gobgp.py): Python script for GoBGP gRPC configuration
+- [config_playbook.yml](config_playbook.yml): Ansible playbook orchestrating configuration
+- [prepare_frr_user.sh](prepare_frr_user.sh): Script to prepare FRR container for Ansible
+- [setup.sh](setup.sh): Main setup script (Linux/macOS)
+- [setup.ps1](setup.ps1): Main setup script (Windows PowerShell)
+- [create-links.sh](create-links.sh): Data plane network configuration
+- [verify-bgp.sh](verify-bgp.sh): Comprehensive BGP verification script
+- [checkGobgpStatus.sh](checkGobgpStatus.sh): Quick GoBGP status check
 - clab-bgp-lab/: Generated directory with topology data and keys
 
