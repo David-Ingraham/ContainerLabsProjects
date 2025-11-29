@@ -1,0 +1,76 @@
+Automation container defined in Dockerfile.automaiton -> custom image from python 3.11-slim with linux system pkgs, python pkgs, ansible collections for frr,  git clone and compiling gbgp api and stubs, setting /workspace as default entry dir 
+
+
+
+****Entry Point is setup.sh****
+
+-First checks if the image for the automation container is built, builds if not 
+
+-Destroys lab containers and mounted dirs, deploys fresh lab with topology.yml 
+
+	topology.yml defines the network devices
+
+		-sets Mgmt network
+		-each endpoint gets 
+			-image
+			-mgmt ip
+		-initial configurations for for
+			-enabling bgp and zebra daemons
+			-executes frrinit.sh, passes start
+			-using http for apk pkgs, filter agent at BOCES provides its own SSL certs, 							
+			too messy
+			-configures ssh login
+		-initial configurations for gobgp
+			-starting bgp daemon with no config (-f /dev/null)
+			-debug level logging for verbosity and plain text logs
+
+-Calls create_links.sh for data plane 
+
+
+	create_links.sh, series of docker network commands
+
+		-cleans up networks and links form previous runs
+		-creates links, networks, assigned ips for gbgp to frr, and networks behind them 
+		-delete default routes on hosts to default gateway and add default routes on the 			
+		hosts pointing to frr and gbgp respectively  
+		
+
+-Runs apline container in gobgp namespace
+	-enables ipv4 forwarding in the kernel and adds route to network behind frr via its interface 	
+	directly connected to frr 
+
+	-needed separate container because gobgp image is only the daemon with no shell
+		
+
+-Copies files from host to automation container (docker cp <file> <image-name:/dir/>)
+
+	-configure_gobgp.py
+	-config_playbook.yml
+	-inventory.yml
+	-prepare_user.sh (and chmod +x from within automation container)
+-Adds frr ip to known hosts in automation so ansible frr module can connect (redundant)
+
+
+
+****** config_playbook.yml is called from the automation container***
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+		
+			
+
