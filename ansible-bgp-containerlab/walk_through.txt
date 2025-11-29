@@ -1,4 +1,8 @@
-Automation container defined in Dockerfile.automaiton -> custom image from python 3.11-slim with linux system pkgs, python pkgs, ansible collections for frr,  git clone and compiling gbgp api and stubs, setting /workspace as default entry dir 
+Automation container defined in Dockerfile.automaiton -> 
+-custom image from python 3.11-slim with additional linux system pkgs, python pkgs
+-ansible collections for frr 
+-git clone and compiling gbgp api / library stubs and data structures,
+-setting /workspace as default entry dir 
 
 
 
@@ -23,6 +27,7 @@ Automation container defined in Dockerfile.automaiton -> custom image from pytho
 		-initial configurations for gobgp
 			-starting bgp daemon with no config (-f /dev/null)
 			-debug level logging for verbosity and plain text logs
+			-starts gRPC server on 50051
 
 -Calls create_links.sh for data plane 
 
