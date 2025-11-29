@@ -65,7 +65,10 @@ echo "✓ Data plane configured"
 
 
 # enabling ip forwarding in kernel of gobgp1
-docker run --rm --network container:clab-bgp-lab-gobgp1 --privileged alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
+docker run --rm \
+  --network container:clab-bgp-lab-gobgp1 \
+  --privileged \
+  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
 
 
 # Step 5: Copy configuration files to automation container
@@ -83,7 +86,6 @@ docker exec clab-$LAB_NAME-automation chmod +x /workspace/prepare_frr_user.sh
 docker exec clab-$LAB_NAME-automation mkdir -p /root/.ssh
 
 docker exec clab-$LAB_NAME-automation sh -c "ssh-keyscan 10.1.1.11 >> /root/.ssh/known_hosts"
-docker exec clab-$LAB_NAME-automation chmod +x /workspace/prepare_frr_user.sh
 
 echo "✓ Files copied"
 
