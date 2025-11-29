@@ -109,8 +109,6 @@ echo "    - FRR1 backend:   10.1.0.0/24 (FRR: 10.1.0.2, host1: 10.1.0.10)"
 echo "    - GoBGP1 backend: 10.2.0.0/24 (GoBGP: 10.2.0.2, host2: 10.2.0.10)"
 echo ""
 echo "Configure BGP:"
-echo "  docker exec -it clab-$LAB_NAME-automation bash"
-echo "  cd /workspace"
-echo "  ansible-playbook -i inventory.yml config_playbook.yml"
-echo ""
+echo "  docker exec -it clab-$LAB_NAME-automation bash ansible-playbook -i inventory.yml config_playbook.yml"
+
 
