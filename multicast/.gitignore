@@ -1,0 +1,13 @@
+# ContainerLab generated files
+clab-*/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Ansible
+*.retry
+
