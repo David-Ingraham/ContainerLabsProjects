@@ -1,0 +1,49 @@
+FROM python:3.11-slim
+
+LABEL description="Network automation container with Ansible, Python, and gRPC tools"
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        openssh-client \
+        sshpass \
+        iputils-ping \
+        iproute2 \
+        curl \
+        vim \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for network automation
+RUN pip install --no-cache-dir \
+    --trusted-host pypi.org \
+    --trusted-host pypi.python.org \
+    --trusted-host files.pythonhosted.org \
+    ansible \
+    grpcio \
+    grpcio-tools \
+    protobuf \ 
+    netmiko \
+    paramiko
+
+# Install Ansible collections for network devices
+RUN ansible-galaxy collection install frr.frr \
+    && ansible-galaxy collection install ansible.netcommon
+
+# Clone GoBGP repository and generate Python gRPC stubs
+RUN git clone --depth 1 https://github.com/osrg/gobgp.git /tmp/gobgp && \
+    cd /tmp/gobgp/proto && \
+    python -m grpc_tools.protoc \
+        -I. \
+        --python_out=/usr/local/lib/python3.11/site-packages \
+        --grpc_python_out=/usr/local/lib/python3.11/site-packages \
+        api/*.proto && \
+    touch /usr/local/lib/python3.11/site-packages/api/__init__.py && \
+    rm -rf /tmp/gobgp
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
