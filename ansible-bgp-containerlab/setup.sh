@@ -4,24 +4,56 @@
 set -e
 
 PROJECT_DIR="/Users/davidingraham/Desktop/personal_projects/networkAutomation/ContainerLabsProjects/ansible-bgp-containerlab"
-IMAGE_NAME="network-automation:latest"
+AUTOMATION_IMAGE="network-automation:latest"
+FRR_IMAGE="frr-ansible:latest"
 LAB_NAME="bgp-lab"
 
 cd "$PROJECT_DIR"
+
+# Source credentials from env file
+if [ -f credentials.env ]; then
+    source credentials.env
+else
+    echo "ERROR: credentials.env not found"
+    echo "Create credentials.env with FRR_ROOT_PASS, FRR_USER, FRR_PASS"
+    exit 1
+fi
+
+# Generate credentials.yml for Ansible from env vars
+cat > credentials.yml << EOF
+# Ansible credentials for FRR routers
+# Auto-generated from credentials.env - do not edit directly
+ansible_user: ${FRR_USER}
+ansible_password: ${FRR_PASS}
+EOF
 
 echo "=========================================="
 echo "BGP Lab Infrastructure Setup"
 echo "=========================================="
 
-# Step 1: Check if custom image exists, build if needed
+# Step 1: Check if custom images exist, build if needed
 echo ""
-echo "=== Step 1: Docker Image ==="
+echo "=== Step 1: Docker Images ==="
+
+# Automation container image
 if docker images | grep -q "network-automation.*latest"; then
-    echo "✓ Image $IMAGE_NAME already exists"
+    echo "Image $AUTOMATION_IMAGE exists"
 else
-    echo "Building $IMAGE_NAME (one-time operation)..."
-    docker build -f Dockerfile.automation -t $IMAGE_NAME .
-    echo "✓ Image built successfully"
+    echo "Building $AUTOMATION_IMAGE..."
+    docker build -f Dockerfile.automation -t $AUTOMATION_IMAGE .
+    echo "Image $AUTOMATION_IMAGE built"
+fi
+
+# FRR container image (with credentials from env)
+if docker images | grep -q "frr-ansible.*latest"; then
+    echo "Image $FRR_IMAGE exists"
+else
+    echo "Building $FRR_IMAGE..."
+    docker build -f Dockerfile.frr -t $FRR_IMAGE \
+        --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" \
+        --build-arg FRR_USER="$FRR_USER" \
+        --build-arg FRR_PASS="$FRR_PASS" .
+    echo "Image $FRR_IMAGE built"
 fi
 
 # Step 2: Deploy lab (destroy if running to ensure latest topology)
@@ -80,14 +112,9 @@ docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>/dev/null || true
 docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
 docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
 docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
-docker cp prepare_frr_user.sh clab-$LAB_NAME-automation:/workspace/
-docker exec clab-$LAB_NAME-automation chmod +x /workspace/prepare_frr_user.sh
+docker cp credentials.yml clab-$LAB_NAME-automation:/workspace/
 
-#docker exec clab-$LAB_NAME-automation mkdir -p /root/.ssh
-
-#docker exec clab-$LAB_NAME-automation sh -c "ssh-keyscan 10.1.1.11 >> /root/.ssh/known_hosts"
-
-echo "✓ Files copied"
+echo "Files copied"
 
 # Final status
 echo ""

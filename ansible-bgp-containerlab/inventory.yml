@@ -3,13 +3,14 @@ all:
     routers:
       children:
         frr_routers:
+          vars:
+            ansible_network_os: frr
+            ansible_connection: network_cli
+            ansible_host_key_checking: false
+            # Credentials loaded from credentials.yml via playbook vars_files
           hosts:
             frr1:
               ansible_host: 10.1.1.11
-              ansible_network_os: frr
-              ansible_connection: network_cli
-              ansible_user: frruser
-              ansible_password: admin123
               bgp_as: 65001
               bgp_router_id: 1.1.1.1
               bgp_neighbor_ip: 10.0.1.3

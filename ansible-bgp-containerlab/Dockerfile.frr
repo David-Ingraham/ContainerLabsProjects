@@ -1,0 +1,46 @@
+FROM frrouting/frr:latest
+
+LABEL description="FRR router pre-configured for Ansible network_cli access"
+
+# Build arguments for credentials (must be provided via --build-arg)
+# Source from credentials.env - no defaults here to avoid committing secrets
+ARG FRR_ROOT_PASS
+ARG FRR_USER
+ARG FRR_PASS
+
+# Enable BGP and Zebra daemons
+RUN sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons && \
+    sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
+
+# Use HTTP for Alpine packages (avoids SSL issues with proxy)
+RUN sed -i 's/https/http/g' /etc/apk/repositories
+
+# Install SSH server
+RUN apk add --no-cache --allow-untrusted \
+    openssh-server \
+    openssh-keygen \
+    openssh-client
+
+# Configure SSH directory and settings
+RUN mkdir -p /etc/ssh && \
+    echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && \
+    echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+
+# Set root password
+RUN echo "root:${FRR_ROOT_PASS}" | chpasswd
+
+# Create frruser for Ansible access
+# frrvty group already exists in base FRR image
+RUN adduser -D ${FRR_USER} && \
+    echo "${FRR_USER}:${FRR_PASS}" | chpasswd && \
+    addgroup ${FRR_USER} frrvty && \
+    sed -i "/^${FRR_USER}:/s|:[^:]*$|:/usr/bin/vtysh|" /etc/passwd
+
+# Create FRR config files with proper ownership
+RUN touch /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
+    chown frr:frr /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
+    chmod 640 /etc/frr/bgpd.conf /etc/frr/vtysh.conf
+
+# Default command (can be overridden by topology exec)
+CMD ["/bin/sh"]
+

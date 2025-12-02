@@ -13,19 +13,11 @@ topology:
     
     frr1:
       kind: linux
-      image: frrouting/frr:latest
+      image: frr-ansible:latest
       mgmt-ipv4: 10.1.1.11
       exec:
-        - sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons
-        - sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
-        - /usr/lib/frr/frrinit.sh start
-        - sed -i 's/https/http/g' /etc/apk/repositories #bypass ssl verification for package
-        - apk add --no-cache --allow-untrusted openssh-server openssh-keygen openssh-client
-        - mkdir -p /etc/ssh
         - ssh-keygen -A
-        - sh -c "echo 'root:admin123' | chpasswd"
-        - sh -c "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config"
-        - sh -c "echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config"
+        - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
     
     gobgp1:

@@ -1,12 +1,12 @@
 ---
 # BGP Configuration Playbook
 # Infrastructure (interfaces, IPs) already configured by setup.sh
+# FRR user/daemon setup handled by frr-ansible Docker image
 # This playbook only handles BGP protocol configuration
 
 - name: Configure GoBGP via gRPC API
   hosts: localhost
   gather_facts: no
-  
   
   tasks:
     - name: Configure GoBGP BGP settings via Python gRPC
@@ -17,22 +17,11 @@
       debug:
         var: gobgp_result.stdout_lines
 
-- name: Prepare FRR for Ansible Access
-  hosts: localhost
-  gather_facts: no
-  
-  tasks:
-    - name: Create FRR user with vtysh shell for network_cli
-      command: /workspace/prepare_frr_user.sh 
-      register: frr_prep_result
-      
-    - name: Display FRR preparation result
-      debug:
-        var: frr_prep_result.stdout_lines
-
 - name: Configure FRR via frr_bgp Module
   hosts: frr_routers
   gather_facts: no
+  vars_files:
+    - credentials.yml
   
   environment:
     ANSIBLE_HOST_KEY_CHECKING: False
