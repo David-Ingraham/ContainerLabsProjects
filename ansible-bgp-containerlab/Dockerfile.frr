@@ -10,7 +10,7 @@ ARG FRR_PASS
 
 # Enable BGP and Zebra daemons
 RUN sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons && \
-    sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons
+    sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons       
 
 # Use HTTP for Alpine packages (avoids SSL issues with proxy)
 RUN sed -i 's/https/http/g' /etc/apk/repositories

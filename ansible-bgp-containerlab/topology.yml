@@ -8,7 +8,7 @@ topology:
   nodes:
     automation:
       kind: linux
-      image: network-automation:latest
+      image: network-automation:latest  
       mgmt-ipv4: 10.1.1.10
     
     frr1:

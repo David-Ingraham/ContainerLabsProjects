@@ -15,7 +15,7 @@
       
     - name: Display GoBGP configuration result
       debug:
-        var: gobgp_result.stdout_lines
+        var: gobgp_result.stdout_lines  
 
 - name: Configure FRR via frr_bgp Module
   hosts: frr_routers
