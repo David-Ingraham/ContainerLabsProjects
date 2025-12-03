@@ -90,9 +90,15 @@ echo "✓ Containers ready"
 # Step 4: Configure data plane interfaces
 echo ""
 echo "=== Step 4: Data Plane Configuration ==="
-echo "Configuring interface IPs on eth1..."
-chmod +x create-links.sh
-./create-links.sh
+echo "Configuring data plane networks from inventory.yml..."
+
+# Legacy bash script (replaced by Python)
+# chmod +x create-links.sh
+# ./create-links.sh
+
+# Data-driven approach: read network config from inventory.yml
+python3 create_links.py
+
 echo "✓ Data plane configured"
 
 

@@ -43,6 +43,10 @@ This file is:
 - Regenerated on each setup script run
 - Listed in .gitignore
 
+### Why Two Files?
+
+Shell/Docker consume KEY=VALUE format natively. Ansible's `vars_files` requires YAML. The .env file is the source of truth; credentials.yml is generated from it.
+
 ### Cross-Machine Builds
 
 If building on multiple machines (e.g., Mac and Windows), each machine needs its own credentials.env. The credentials can differ between machines as long as:

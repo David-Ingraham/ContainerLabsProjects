@@ -109,16 +109,20 @@ Write-Host "Waiting for containers to be ready..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
 Write-Host "Containers ready" -ForegroundColor Green
 
-# Step 4: Configure data plane using Docker CLI container
+# Step 4: Configure data plane using Python script
 Write-Host ""
 Write-Host "=== Step 4: Data Plane Configuration ===" -ForegroundColor Yellow
-Write-Host "Configuring interface IPs on eth1..." -ForegroundColor Yellow
+Write-Host "Configuring data plane networks from inventory.yml..." -ForegroundColor Yellow
 
-docker run --rm `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  -v "${PROJECT_DIR}:/workspace" `
-  -w /workspace `
-  docker:cli sh create-links.sh
+# Legacy bash script via Docker (replaced by Python)
+# docker run --rm `
+#   -v /var/run/docker.sock:/var/run/docker.sock `
+#   -v "${PROJECT_DIR}:/workspace" `
+#   -w /workspace `
+#   docker:cli sh create-links.sh
+
+# Data-driven approach: read network config from inventory.yml
+python create_links.py
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Data plane configured" -ForegroundColor Green
