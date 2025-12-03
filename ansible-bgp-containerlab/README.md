@@ -10,12 +10,53 @@ Network automation lab demonstrating BGP configuration between FRR and GoBGP rou
   - Linux/macOS: setup.sh
   - Windows: setup.ps1 (PowerShell)
 
+## Credentials Management
+
+This project uses a two-file approach for credentials:
+
+### credentials.env (required, gitignored)
+
+Create this file in the project root on each build machine:
+
+```
+FRR_ROOT_PASS=<root-password>
+FRR_USER=<ansible-username>
+FRR_PASS=<ansible-password>
+```
+
+This file is:
+- Used at image build time to bake credentials into the FRR Docker image
+- Sourced by setup scripts to generate credentials.yml
+- Listed in .gitignore (not committed to version control)
+
+### credentials.yml (auto-generated)
+
+The setup scripts generate this file from credentials.env:
+
+```yaml
+ansible_user: <value-from-FRR_USER>
+ansible_password: <value-from-FRR_PASS>
+```
+
+This file is:
+- Used by Ansible to authenticate to FRR containers
+- Regenerated on each setup script run
+- Listed in .gitignore
+
+### Cross-Machine Builds
+
+If building on multiple machines (e.g., Mac and Windows), each machine needs its own credentials.env. The credentials can differ between machines as long as:
+- The same credentials.env is used for both the Docker image build and Ansible configuration on that machine
+- If transferring a pre-built frr-ansible image between machines, the receiving machine's credentials.env must match what was baked into the image
+
 ## Network Topology
 
 Management Network: 10.1.1.0/24
 - Automation container: 10.1.1.10
 - FRR1: 10.1.1.11
 - GoBGP1: 10.1.1.12
+- Host1: 10.1.1.20
+- Host2: 10.1.1.21
 
 Data Plane: 10.0.1.0/29
 - FRR1: 10.0.1.2
@@ -33,6 +74,41 @@ BGP Configuration:
 
 ## Components
 
+### FRR Container Image (Build-Time Configuration)
+
+Defined in [Dockerfile.frr](Dockerfile.frr). The following are configured at image build time:
+
+- Base image: frrouting/frr:latest
+- Enable BGP and Zebra daemons in /etc/frr/daemons
+- Install SSH server packages (openssh-server, openssh-keygen, openssh-client)
+- Configure SSH settings (PermitRootLogin, PasswordAuthentication)
+- Set root password from FRR_ROOT_PASS build arg
+- Create Ansible user from FRR_USER/FRR_PASS build args:
+  - Add user to frrvty group (exists in base FRR image)
+  - Set vtysh as default shell (required for Ansible frr.frr module)
+- Create FRR config files with proper ownership (/etc/frr/bgpd.conf, /etc/frr/vtysh.conf)
+
+Build command (executed automatically by setup scripts if image doesn't exist):
+
+```bash
+docker build -f Dockerfile.frr -t frr-ansible:latest \
+    --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" \
+    --build-arg FRR_USER="$FRR_USER" \
+    --build-arg FRR_PASS="$FRR_PASS" .
+```
+
+### FRR Container (Runtime Configuration)
+
+Defined in [topology.yml](topology.yml) exec section. The following run when the container starts:
+
+- `ssh-keygen -A`: Generate SSH host keys (must be unique per container instance)
+- `/usr/lib/frr/frrinit.sh start`: Start FRR daemons (zebra, bgpd)
+- `/usr/sbin/sshd`: Start SSH server for Ansible access
+
+These cannot be done at build time because:
+- SSH host keys must be unique per container instance
+- FRR daemons require a running container with proper namespaces
+
 ### Automation Container
 
 Defined in [Dockerfile.automation](Dockerfile.automation):
@@ -48,16 +124,11 @@ Defined in [Dockerfile.automation](Dockerfile.automation):
 [topology.yml](topology.yml) defines network devices:
 - Management network configuration
 - Container images and management IPs for each node
-- FRR initial configuration:
-  - Enables bgp and zebra daemons in daemons file
-  - Executes frrinit.sh with start parameter
-  - Uses http for apk packages (avoids SSL certificate issues with proxy)
-  - Configures SSH login with root password
-- GoBGP initial configuration:
+- FRR runtime initialization (ssh-keygen, frrinit, sshd)
+- GoBGP configuration:
   - Starts bgp daemon with no config (-f /dev/null)
-  - Debug level logging for verbosity
-  - Plain text logs
-  - Starts gRPC server on port 50051
+  - Debug level logging
+  - gRPC server on port 50051
 - Host containers for connectivity testing
 
 ### Inventory File
@@ -65,7 +136,7 @@ Defined in [Dockerfile.automation](Dockerfile.automation):
 [inventory.yml](inventory.yml) structure:
 - FRR routers group:
   - Uses network_cli connection type
-  - Credentials: frruser/admin123
+  - Credentials loaded from credentials.yml vars_file
   - Variables: ansible_host, bgp_as, bgp_router_id, bgp_neighbor_ip, bgp_neighbor_as, advertise_network
 - GoBGP routers group:
   - Variables: ansible_host, bgp_as, bgp_router_id
@@ -75,29 +146,31 @@ Defined in [Dockerfile.automation](Dockerfile.automation):
 
 ### Entry Point: [setup.sh](setup.sh) (or [setup.ps1](setup.ps1) for Windows)
 
-1. Check if automation container image exists, build if needed
+1. Source credentials.env and generate credentials.yml
 
-2. Destroy existing lab containers and mounted directories
+2. Check if Docker images exist, build if needed:
+   - network-automation:latest (automation container)
+   - frr-ansible:latest (FRR with baked-in user credentials)
+
+3. Destroy existing lab containers and mounted directories
    - Ensures clean state
    - Deploys fresh lab with topology.yml
 
-3. Wait for containers to stabilize (5 seconds)
+4. Wait for containers to stabilize (5 seconds)
 
-4. Configure data plane with [create-links.sh](create-links.sh)
+5. Configure data plane with [create-links.sh](create-links.sh)
 
-5. Enable IP forwarding in GoBGP container kernel
+6. Enable IP forwarding in GoBGP container kernel
    - Uses Alpine container in gobgp1 network namespace
    - Sets net.ipv4.ip_forward=1
    - Adds route to 10.1.0.0/24 via 10.0.1.2
    - Required because gobgp image only contains daemon with no shell
 
-6. Copy files to automation container:
+7. Copy files to automation container:
    - [configure_gobgp.py](configure_gobgp.py)
    - [config_playbook.yml](config_playbook.yml)
    - [inventory.yml](inventory.yml)
-   - [prepare_frr_user.sh](prepare_frr_user.sh) (with execute permissions)
-
-7. Add FRR1 IP to known_hosts in automation container
+   - [credentials.yml](credentials.yml)
 
 ### Data Plane Configuration: [create-links.sh](create-links.sh)
 
@@ -128,7 +201,7 @@ docker exec -it clab-bgp-lab-automation ansible-playbook -i inventory.yml config
 
 ### Configuration Playbook: [config_playbook.yml](config_playbook.yml)
 
-Executes three main tasks:
+The playbook handles BGP protocol configuration only. FRR user and daemon setup is already complete from the Docker image build and container startup.
 
 #### Task 1: Configure GoBGP via Python/gRPC
 
@@ -138,7 +211,7 @@ Runs [configure_gobgp.py](configure_gobgp.py):
 - Sets router ID: 2.2.2.2
 - Sets AS number: 65002
 - Configures BGP neighbor:
-  - Neighbor IP: 10.1.1.11 (FRR1 management IP)
+  - Neighbor IP: 10.0.1.3 (GoBGP data plane IP)
   - Peer AS: 65001
   - Next hop: 10.0.1.3 (GoBGP data plane IP)
 - Advertises network prefix: 10.2.0.0/24
@@ -148,25 +221,10 @@ Runs [configure_gobgp.py](configure_gobgp.py):
 - Adds path to global RIB (Route Information Base)
 - Constructs BGP attributes using compiled API structures
 
-#### Task 2: Prepare FRR User
-
-Runs [prepare_frr_user.sh](prepare_frr_user.sh):
-- Ansible frr.frr module requires specifically configured user
-- Uses vtysh shell (Cisco-like CLI for FRR)
-- Helper function executes all commands in single SSH session
-- Creates frruser if not exists
-- Sets password: admin123
-- Adds frruser to frrvty group (created in FRR image)
-- Sets vtysh as default shell for frruser
-  - When Ansible connects, interface is ready for CLI commands
-  - Required for frr.frr_bgp module operation
-- Creates vtysh.conf and bgpd.conf files
-- Sets ownership and permissions for frr user
-- Starts BGP daemon
-
-#### Task 3: Configure FRR via Ansible
+#### Task 2: Configure FRR via Ansible
 
 Uses frr.frr.frr_bgp module:
+- Loads credentials from credentials.yml vars_file
 - Sets AS number: 65001
 - Sets router ID: 1.1.1.1
 - Configures BGP neighbor:
@@ -264,13 +322,11 @@ docker exec clab-bgp-lab-gobgp1 gobgp global rib
 
 ### SSH Connectivity
 
-Test SSH to FRR container:
+Test SSH to FRR container (use credentials from credentials.env):
 
 ```bash
-docker exec clab-bgp-lab-automation ssh frruser@10.1.1.11
+docker exec clab-bgp-lab-automation ssh <FRR_USER>@10.1.1.11
 ```
-
-Password: admin123
 
 ### ContainerLab Logs
 
@@ -310,14 +366,15 @@ docker run --rm -it --privileged `
 
 - [topology.yml](topology.yml): ContainerLab topology definition
 - [Dockerfile.automation](Dockerfile.automation): Custom automation container image
+- [Dockerfile.frr](Dockerfile.frr): FRR container with baked-in Ansible user
 - [inventory.yml](inventory.yml): Ansible inventory with router variables
+- [credentials.env](credentials.env): Credentials source file (gitignored, create manually)
+- [credentials.yml](credentials.yml): Ansible credentials (gitignored, auto-generated)
 - [configure_gobgp.py](configure_gobgp.py): Python script for GoBGP gRPC configuration
-- [config_playbook.yml](config_playbook.yml): Ansible playbook orchestrating configuration
-- [prepare_frr_user.sh](prepare_frr_user.sh): Script to prepare FRR container for Ansible
+- [config_playbook.yml](config_playbook.yml): Ansible playbook for BGP configuration
 - [setup.sh](setup.sh): Main setup script (Linux/macOS)
 - [setup.ps1](setup.ps1): Main setup script (Windows PowerShell)
 - [create-links.sh](create-links.sh): Data plane network configuration
 - [verify-bgp.sh](verify-bgp.sh): Comprehensive BGP verification script
 - [checkGobgpStatus.sh](checkGobgpStatus.sh): Quick GoBGP status check
 - clab-bgp-lab/: Generated directory with topology data and keys
-
