@@ -41,17 +41,17 @@ echo "End-to-End Connectivity Test"
 echo "=========================================="
 
 echo ""
-echo "=== Host1 (10.1.0.10) pinging Host2 (10.2.0.10) ==="
-if docker exec $HOST1 ping -c 3 10.2.0.10; then
-    echo "SUCCESS: Host1 can reach Host2 through BGP!"
+echo "=== Host1 (10.1.0.10) pinging Host2 (10.3.0.10) ==="
+if docker exec $HOST1 ping -c 3 10.3.0.10; then
+    echo "SUCCESS: Host1 can reach Host2 through BGP"
 else
     echo "FAILED: Host1 cannot reach Host2"
 fi
 
 echo ""
-echo "=== Host2 (10.2.0.10) pinging Host1 (10.1.0.10) ==="
+echo "=== Host2 (10.3.0.10) pinging Host1 (10.1.0.10) ==="
 if docker exec $HOST2 ping -c 3 10.1.0.10; then
-    echo "SUCCESS: Host2 can reach Host1 through BGP!"
+    echo "SUCCESS: Host2 can reach Host1 through BGP"
 else
     echo "FAILED: Host2 cannot reach Host1"
 fi

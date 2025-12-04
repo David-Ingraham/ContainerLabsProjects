@@ -56,19 +56,25 @@ else
     echo "Image $FRR_IMAGE built"
 fi
 
-# Step 2: Deploy lab (destroy if running to ensure latest topology)
+# Step 2: Remove all containers and networks
 echo ""
-echo "=== Step 2: Lab Deployment ==="
-if docker ps | grep -q "clab-$LAB_NAME"; then
-    echo "Existing lab detected - destroying to ensure latest topology..."
-    docker run --rm -it --privileged \
-      --network host \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v $(pwd):/lab \
-      -w /lab \
-      ghcr.io/srl-labs/clab containerlab destroy -t topology.yml --cleanup
-    echo "✓ Old lab destroyed"
-fi
+echo "=== Step 2: Cleanup ==="
+
+# Stop running containers
+docker kill $(docker ps -q) 2>/dev/null || true
+
+# Remove all containers
+docker rm -f $(docker ps -aq) 2>/dev/null || true
+echo "Containers removed"
+
+# Remove non-default networks
+docker network ls --format "{{.Name}}" | grep -v -E "^(bridge|host|none)$" | xargs -r docker network rm 2>/dev/null || true
+echo "Networks removed"
+
+# Remove containerlab state files
+rm -rf "clab-$LAB_NAME" 2>/dev/null || true
+
+echo "Cleanup complete"
 
 echo "Deploying fresh lab..."
 docker run --rm -it --privileged \
@@ -76,8 +82,8 @@ docker run --rm -it --privileged \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $(pwd):/lab \
   -w /lab \
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml
-echo "✓ Lab deployed"
+  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml --reconfigure
+echo "Lab deployed"
 
 # Step 3: Wait for containers to stabilize
 echo ""
@@ -102,11 +108,15 @@ python3 create_links.py
 echo "✓ Data plane configured"
 
 
-# enabling ip forwarding in kernel of gobgp1
+# Enable IP forwarding and add static routes on gobgp1
+# GoBGP image has no shell, so we use Alpine in gobgp1's network namespace
+# GoBGP only does BGP protocol - it doesn't install routes into kernel
+echo "Configuring gobgp1 kernel routing..."
 docker run --rm \
   --network container:clab-bgp-lab-gobgp1 \
   --privileged \
-  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
+  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
+echo "IP forwarding and routes configured on gobgp1"
 
 
 # Step 5: Copy configuration files to automation container
@@ -128,22 +138,32 @@ echo "=========================================="
 echo "Infrastructure Setup Complete!"
 echo "=========================================="
 echo ""
-echo "Lab Status:"
-echo "  • Management Network: 10.1.1.0/24"
-echo "    - Automation:  10.1.1.10"
-echo "    - FRR1:        10.1.1.11"
-echo "    - GoBGP1:      10.1.1.12"
-echo "    - Host1:       10.1.1.20"
-echo "    - Host2:       10.1.1.21"
+echo "Multicast Lab Topology:"
 echo ""
-echo "  • BGP Data Plane: 10.0.1.0/29"
-echo "    - FRR1 <-> GoBGP1"
+echo "  [source]                                    [receiver1] [receiver2]"
+echo "     |                                              |          |"
+echo "  10.1.0.0/24                                   10.3.0.0/24"
+echo "     |                                              |"
+echo "   frr1 -------- frr2 -------- frr3 -------- gobgp1"
+echo "        10.0.1.x      10.0.2.x      10.0.3.x"
 echo ""
-echo "  • Backend Networks:"
-echo "    - FRR1 backend:   10.1.0.0/24 (FRR: 10.1.0.2, host1: 10.1.0.10)"
-echo "    - GoBGP1 backend: 10.2.0.0/24 (GoBGP: 10.2.0.2, host2: 10.2.0.10)"
+echo "Management Network: 10.1.1.0/24"
+echo "  - Automation:  10.1.1.10"
+echo "  - FRR1:        10.1.1.11 (AS 65001) - First Hop Router"
+echo "  - FRR2:        10.1.1.12 (AS 65002) - Transit Router"
+echo "  - FRR3:        10.1.1.13 (AS 65003) - Last Hop Router"
+echo "  - GoBGP1:      10.1.1.14 (AS 65004)"
+echo "  - Source:      10.1.1.20"
+echo "  - Receiver1:   10.1.1.21"
+echo "  - Receiver2:   10.1.1.22"
 echo ""
 echo "Configure BGP:"
-echo "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
+echo "  docker exec -it clab-\$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
+echo ""
+echo "Multicast Notes:"
+echo "  - Source (10.1.0.10) sends multicast traffic"
+echo "  - frr1 is FHR (First Hop Router) - registers source with RP"
+echo "  - frr3 is LHR (Last Hop Router) - responds to IGMP joins"
+echo "  - Receivers (10.3.0.x) join multicast groups via IGMP"
 
 

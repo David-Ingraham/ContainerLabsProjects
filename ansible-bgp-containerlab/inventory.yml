@@ -1,9 +1,19 @@
 all:
   vars:
-    # Lab-level configuration for create_links.py
+    # Lab-level configuration
     lab_name: bgp-lab
-    data_plane_network: bgp-dataplane
-    data_plane_subnet: 10.0.1.0/29
+    
+    # Router-to-router links (point-to-point)
+    # Only frr1-gobgp1 needs a dedicated link
+    # frr2 is on frr1's backend network (no separate link needed)
+    router_links:
+      - name: link-frr1-gobgp1
+        subnet: 10.0.1.0/29          # Changed from /30 to /29
+        endpoints:
+          - router: frr1
+            ip: 10.0.1.2
+          - router: gobgp1
+            ip: 10.0.1.3             # Changed from 10.0.1.2 to 10.0.1.3
 
   children:
     routers:
@@ -13,36 +23,113 @@ all:
             ansible_network_os: frr
             ansible_connection: network_cli
             ansible_host_key_checking: false
-            # Credentials loaded from credentials.yml via playbook vars_files
+            
           hosts:
+            # frr1: Main router, FHR for multicast, BGP peer to gobgp1 and frr2
             frr1:
               ansible_host: 10.1.1.11
-              # Data plane
-              data_plane_ip: 10.0.1.2
-              # Backend network
-              backend_network_name: frr-network
-              backend_ip: 10.1.0.2
-              backend_hosts:
-                - {name: host1, ip: 10.1.0.10}
-              # BGP configuration
               bgp_as: 65001
               bgp_router_id: 1.1.1.1
-              bgp_neighbor_ip: 10.0.1.3
-              bgp_neighbor_as: 65002
-              advertise_network: 10.1.0.0/24
-        
+              
+              # BGP neighbors:
+              # - gobgp1 on point-to-point link
+              # - frr2 on shared backend network
+              bgp_neighbors:
+                - neighbor: 10.0.1.3
+                  remote_as: 65002
+                  description: "gobgp1"
+                - neighbor: 10.1.0.3
+                  remote_as: 65003
+                  description: "frr2"
+              
+              # Backend network: multicast source network
+              # frr1, frr2, and host1 are all on this network
+              backend_network_name: frr1-network
+              backend_ip: 10.1.0.2
+              backend_subnet: 10.1.0.0/24
+              backend_hosts:
+                - name: host1
+                  ip: 10.1.0.10
+                - name: frr2
+                  ip: 10.1.0.3
+              
+              advertise_networks:
+                - 10.1.0.0/24
+
+            # frr2: Multicast branch router, Last Hop Router for receivers
+            frr2:
+              ansible_host: 10.1.1.12
+              bgp_as: 65003
+              bgp_router_id: 3.3.3.3
+              
+              # Peers with frr1 on the shared network
+              bgp_neighbors:
+                - neighbor: 10.1.0.2
+                  remote_as: 65001
+                  description: "frr1"
+              
+              # Backend network: multicast receiver network
+              # Note: Use .2 not .1 because Docker reserves .1 for bridge gateway
+              backend_network_name: frr2-network
+              backend_ip: 10.2.0.2
+              backend_subnet: 10.2.0.0/24
+              backend_hosts:
+                - name: receiver1
+                  ip: 10.2.0.10
+                - name: receiver2
+                  ip: 10.2.0.20
+              
+              advertise_networks:
+                - 10.2.0.0/24
+
         gobgp_routers:
           hosts:
+            # GoBGP: Original BGP peer
             gobgp1:
-              ansible_host: 10.1.1.12
-              # Data plane
-              data_plane_ip: 10.0.1.3
-              # Backend network
-              backend_network_name: gobgp-network
-              backend_ip: 10.2.0.2
-              backend_hosts:
-                - {name: host2, ip: 10.2.0.10}
-              # BGP configuration
+              ansible_host: 10.1.1.13
               bgp_as: 65002
               bgp_router_id: 2.2.2.2
-              advertise_network: 10.2.0.0/24
+              
+              bgp_neighbors:
+                - neighbor: 10.0.1.2
+                  remote_as: 65001
+                  description: "frr1"
+              
+              # Backend network for host2
+              backend_network_name: gobgp-network
+              backend_ip: 10.3.0.2
+              backend_subnet: 10.3.0.0/24
+              backend_hosts:
+                - name: host2
+                  ip: 10.3.0.10
+
+    # Host definitions for reference
+    hosts_group:
+      hosts:
+        host1:
+          ansible_host: 10.1.1.20
+          role: multicast_source
+          data_ip: 10.1.0.10
+          gateway: 10.1.0.2
+          connected_router: frr1
+          
+        host2:
+          ansible_host: 10.1.1.21
+          role: endpoint
+          data_ip: 10.3.0.10
+          gateway: 10.3.0.2
+          connected_router: gobgp1
+          
+        receiver1:
+          ansible_host: 10.1.1.22
+          role: multicast_receiver
+          data_ip: 10.2.0.10
+          gateway: 10.2.0.2
+          connected_router: frr2
+          
+        receiver2:
+          ansible_host: 10.1.1.23
+          role: multicast_receiver
+          data_ip: 10.2.0.20
+          gateway: 10.2.0.2
+          connected_router: frr2

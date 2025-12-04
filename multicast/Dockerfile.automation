@@ -1,0 +1,24 @@
+# Automation container for SR Linux lab
+# Based on network-automation image (already built with Ansible, gRPC, etc.)
+# Adds SR Linux specific packages (pygnmi, httpx)
+
+FROM network-automation:latest
+
+# Install SR Linux specific packages
+# pygnmi for gNMI, httpx for async HTTP, rich for output formatting
+RUN pip install --no-cache-dir \
+    --trusted-host pypi.org \
+    --trusted-host pypi.python.org \
+    --trusted-host files.pythonhosted.org \
+    pygnmi \
+    httpx \
+    rich \
+    orjson
+
+# Create workspace directory
+RUN mkdir -p /workspace
+WORKDIR /workspace
+
+# Keep container running
+CMD ["tail", "-f", "/dev/null"]
+

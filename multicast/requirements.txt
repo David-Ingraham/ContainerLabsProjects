@@ -1,0 +1,30 @@
+# Python dependencies for SR Linux automation
+
+# Ansible and network collections
+ansible-core>=2.15
+ansible-pylibssh>=1.1.0
+
+# HTTP/REST client
+requests>=2.31.0
+httpx>=0.25.0
+
+# gNMI client
+pygnmi>=0.8.12
+
+# YAML parsing (for inventory)
+pyyaml>=6.0
+
+# JSON handling
+orjson>=3.9.0
+
+# gRPC (for gNMI and other gRPC APIs)
+grpcio>=1.59.0
+grpcio-tools>=1.59.0
+protobuf>=4.24.0
+
+# Rich output formatting
+rich>=13.6.0
+
+# Netmiko (SSH fallback)
+netmiko>=4.2.0
+

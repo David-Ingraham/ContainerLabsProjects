@@ -73,20 +73,35 @@ if ($frrImageExists) {
     }
 }
 
-# Step 2: Deploy lab (destroy if running to ensure latest topology)
+# Step 2: Remove all containers and networks
 Write-Host ""
-Write-Host "=== Step 2: Lab Deployment ===" -ForegroundColor Yellow
-$labRunning = docker ps --format "{{.Names}}" | Select-String "clab-$LAB_NAME"
-if ($labRunning) {
-    Write-Host "Existing lab detected - destroying to ensure latest topology..." -ForegroundColor Yellow
-    docker run --rm -it --privileged `
-      --network host `
-      -v /var/run/docker.sock:/var/run/docker.sock `
-      -v ${PWD}:/lab `
-      -w /lab `
-      ghcr.io/srl-labs/clab containerlab destroy -t topology.yml --cleanup
-    Write-Host "Old lab destroyed" -ForegroundColor Green
+Write-Host "=== Step 2: Cleanup ===" -ForegroundColor Yellow
+
+# Stop running containers
+$allContainers = docker ps -q
+if ($allContainers) {
+    docker kill $allContainers 2>$null
 }
+
+# Remove all containers
+$allContainersIncludingStopped = docker ps -aq
+if ($allContainersIncludingStopped) {
+    docker rm -f $allContainersIncludingStopped 2>$null
+}
+Write-Host "Containers removed" -ForegroundColor Green
+
+# Remove non-default networks
+docker network ls --format "{{.Name}}" | Where-Object { $_ -notin @("bridge", "host", "none") } | ForEach-Object {
+    docker network rm $_ 2>$null
+}
+Write-Host "Networks removed" -ForegroundColor Green
+
+# Remove containerlab state files
+if (Test-Path "clab-$LAB_NAME") {
+    Remove-Item -Recurse -Force "clab-$LAB_NAME" 2>$null
+}
+
+Write-Host "Cleanup complete" -ForegroundColor Green
 
 Write-Host "Deploying fresh lab..." -ForegroundColor Yellow
 docker run --rm -it --privileged `
@@ -94,7 +109,7 @@ docker run --rm -it --privileged `
   -v /var/run/docker.sock:/var/run/docker.sock `
   -v ${PWD}:/lab `
   -w /lab `
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml
+  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml --reconfigure
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Lab deployed" -ForegroundColor Green
@@ -130,11 +145,16 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Warning: Data plane configuration had issues, but continuing..." -ForegroundColor Yellow
 }
 
-# enabling ip forwarding in kernel of gobgp1
+# Enable IP forwarding and add static routes on gobgp1
+# GoBGP image has no shell, so we use Alpine in gobgp1's network namespace
+# GoBGP only does BGP protocol - it doesn't install routes into kernel
+# Static routes required for kernel to forward packets
+Write-Host "Configuring gobgp1 kernel routing..." -ForegroundColor Yellow
 docker run --rm `
   --network container:clab-bgp-lab-gobgp1 `
   --privileged `
-  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2"
+  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
+Write-Host "IP forwarding and routes configured on gobgp1" -ForegroundColor Green
 
 # Step 5: Copy configuration files to automation container
 Write-Host ""
@@ -156,20 +176,36 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "Infrastructure Setup Complete!" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Lab Status:" -ForegroundColor Green
-Write-Host "  - Management Network: 10.1.1.0/24"
-Write-Host "    - Automation:  10.1.1.10"
-Write-Host "    - FRR1:        10.1.1.11"
-Write-Host "    - GoBGP1:      10.1.1.12"
-Write-Host "    - Host1:       10.1.1.20"
-Write-Host "    - Host2:       10.1.1.21"
+Write-Host "Topology:" -ForegroundColor Green
 Write-Host ""
-Write-Host "  - BGP Data Plane: 10.0.1.0/29"
-Write-Host "    - FRR1 <-> GoBGP1"
+Write-Host "                     [frr2] -------- [receiver1, receiver2]"
+Write-Host "                       |               10.2.0.0/24"
+Write-Host "                    10.1.0.3"
+Write-Host "                       |"
+Write-Host "  host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2"
+Write-Host "                            10.0.1.x        10.3.0.0/24"
 Write-Host ""
-Write-Host "  - Backend Networks:"
-Write-Host "    - FRR1 backend:   10.1.0.0/24 (FRR: 10.1.0.2, host1: 10.1.0.10)"
-Write-Host "    - GoBGP1 backend: 10.2.0.0/24 (GoBGP: 10.2.0.2, host2: 10.2.0.10)"
+Write-Host "Management Network: 10.1.1.0/24" -ForegroundColor Green
+Write-Host "  - Automation:  10.1.1.10"
+Write-Host "  - FRR1:        10.1.1.11 (AS 65001) - BGP + Multicast FHR"
+Write-Host "  - FRR2:        10.1.1.12 (AS 65003) - Multicast LHR"
+Write-Host "  - GoBGP1:      10.1.1.13 (AS 65002) - BGP peer"
+Write-Host "  - Host1:       10.1.1.20 (multicast source)"
+Write-Host "  - Host2:       10.1.1.21"
+Write-Host "  - Receiver1:   10.1.1.22"
+Write-Host "  - Receiver2:   10.1.1.23"
+Write-Host ""
+Write-Host "Data Plane Networks:" -ForegroundColor Green
+Write-Host "  - frr1-network:  10.1.0.0/24 (frr1: .2, frr2: .3, host1: .10)"
+Write-Host "  - frr2-network:  10.2.0.0/24 (frr2: .2, receiver1: .10, receiver2: .20)"
+Write-Host "  - gobgp-network: 10.3.0.0/24 (gobgp1: .2, host2: .10)"
+Write-Host "  - link-frr1-gobgp1: 10.0.1.0/29 (frr1: .2, gobgp1: .3)"
 Write-Host ""
 Write-Host "Configure BGP:" -ForegroundColor Yellow
 Write-Host "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
+Write-Host ""
+Write-Host "Multicast Notes:" -ForegroundColor Cyan
+Write-Host "  - Source: host1 (10.1.0.10) on frr1's backend"
+Write-Host "  - FHR: frr1 - First Hop Router for multicast source"
+Write-Host "  - LHR: frr2 - Last Hop Router for receivers"
+Write-Host "  - Receivers: 10.2.0.10, 10.2.0.20 behind frr2"

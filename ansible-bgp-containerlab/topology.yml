@@ -1,16 +1,36 @@
 name: bgp-lab
 
+# Topology with Multicast Branch
+#
+# Original path (unicast/BGP):
+#   host1 --- frr1 --- gobgp1 --- host2
+#
+# Multicast branch (added):
+#   frr2 branches off frr1's backend network
+#   Receivers behind frr2
+#
+#                       [frr2] -------- [receiver1, receiver2]
+#                         |               10.2.0.0/24
+#                      10.1.0.3
+#                         |
+#   host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2
+#                              10.0.1.x
+#
+# Multicast: source (host1) -> frr1 (FHR) -> frr2 -> receivers
+
 mgmt:
   network: mgmt-net
   ipv4-subnet: 10.1.1.0/24
 
 topology:
   nodes:
+    # Automation container
     automation:
       kind: linux
       image: network-automation:latest  
       mgmt-ipv4: 10.1.1.10
     
+    # FRR1: Main router, First Hop Router for multicast
     frr1:
       kind: linux
       image: frr-ansible:latest
@@ -19,27 +39,45 @@ topology:
         - ssh-keygen -A
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
+
+    # FRR2: Multicast branch router
+    frr2:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.12
+      exec:
+        - ssh-keygen -A
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
     
+    # GoBGP: BGP peer (original topology)
     gobgp1:
       kind: linux
       image: jauderho/gobgp:latest
-      mgmt-ipv4: 10.1.1.12
+      mgmt-ipv4: 10.1.1.13
       cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
     
+    # Host1: On frr1 backend, multicast source
     host1:
       kind: linux
       image: alpine:latest
       mgmt-ipv4: 10.1.1.20
-      
-    
+
+    # Host2: On gobgp1 backend (original topology)
     host2:
       kind: linux
       image: alpine:latest
       mgmt-ipv4: 10.1.1.21
-     
 
-  # Links commented out - ContainerLab link creation fails on macOS
-  # Data plane connectivity created by create-links.sh using Docker networks
-  # links:
-  #   - endpoints: ["frr1:eth1", "gobgp1:eth1"]
+    # Multicast receivers: Behind frr2
+    receiver1:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 10.1.1.22
 
+    receiver2:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 10.1.1.23
+
+  # Links created by create_links.py from inventory.yml

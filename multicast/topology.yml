@@ -1,0 +1,55 @@
+name: srlinux-multicast-lab
+
+mgmt:
+  network: mgmt-net
+  ipv4-subnet: 172.20.0.0/24
+
+topology:
+  defaults:
+    kind: nokia_srlinux
+    image: ghcr.io/nokia/srlinux:latest
+
+  nodes:
+    # Automation container - runs Ansible and Python scripts
+    automation:
+      kind: linux
+      image: srlinux-automation:latest
+      mgmt-ipv4: 172.20.0.10
+
+    # SR Linux routers
+    srl1:
+      mgmt-ipv4: 172.20.0.11
+      startup-config: configs/srl1.cfg
+
+    srl2:
+      mgmt-ipv4: 172.20.0.12
+      startup-config: configs/srl2.cfg
+
+    srl3:
+      mgmt-ipv4: 172.20.0.13
+      startup-config: configs/srl3.cfg
+
+    # Multicast source and receivers
+    source:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 172.20.0.20
+
+    receiver1:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 172.20.0.21
+
+    receiver2:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 172.20.0.22
+
+  # Links defined in containerlab (data plane)
+  # Additional links created by create_links.py from inventory.yml
+  links:
+    # Core router mesh
+    - endpoints: ["srl1:e1-1", "srl2:e1-1"]
+    - endpoints: ["srl2:e1-2", "srl3:e1-1"]
+    - endpoints: ["srl1:e1-2", "srl3:e1-2"]
+
