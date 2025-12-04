@@ -2,15 +2,26 @@
 
 $ErrorActionPreference = "Stop"
 
-$PROJECT_DIR = $PSScriptRoot
+# Script is in scripts/shell/, project root is 2 levels up
+$SCRIPT_DIR = $PSScriptRoot
+$PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.FullName
+
 $AUTOMATION_IMAGE = "network-automation:latest"
 $FRR_IMAGE = "frr-ansible:latest"
 $LAB_NAME = "bgp-lab"
 
+# Directory structure
+$DOCKER_DIR = Join-Path $PROJECT_DIR "docker"
+$ANSIBLE_DIR = Join-Path $PROJECT_DIR "ansible"
+$CONTAINERLAB_DIR = Join-Path $PROJECT_DIR "containerlab"
+$SCRIPTS_PYTHON_DIR = Join-Path $PROJECT_DIR "scripts/python"
+$CREDENTIALS_DIR = Join-Path $ANSIBLE_DIR "credentials"
+$PLAYBOOKS_DIR = Join-Path $ANSIBLE_DIR "playbooks"
+
 Set-Location $PROJECT_DIR
 
 # Source credentials from env file
-$credentialsFile = Join-Path $PROJECT_DIR "credentials.env"
+$credentialsFile = Join-Path $CREDENTIALS_DIR "credentials.env"
 if (Test-Path $credentialsFile) {
     Get-Content $credentialsFile | ForEach-Object {
         if ($_ -match "^\s*([^#][^=]+)=(.*)$") {
@@ -20,8 +31,8 @@ if (Test-Path $credentialsFile) {
         }
     }
 } else {
-    Write-Host "ERROR: credentials.env not found" -ForegroundColor Red
-    Write-Host "Create credentials.env with FRR_ROOT_PASS, FRR_USER, FRR_PASS"
+    Write-Host "ERROR: credentials.env not found at $credentialsFile" -ForegroundColor Red
+    Write-Host "Create ansible/credentials/credentials.env with FRR_ROOT_PASS, FRR_USER, FRR_PASS"
     exit 1
 }
 
@@ -32,7 +43,7 @@ $credentialsYml = @"
 ansible_user: $FRR_USER
 ansible_password: $FRR_PASS
 "@
-Set-Content -Path (Join-Path $PROJECT_DIR "credentials.yml") -Value $credentialsYml
+Set-Content -Path (Join-Path $CREDENTIALS_DIR "credentials.yml") -Value $credentialsYml
 
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "BGP Lab Infrastructure Setup" -ForegroundColor Cyan
@@ -48,7 +59,7 @@ if ($automationImageExists) {
     Write-Host "Image $AUTOMATION_IMAGE exists" -ForegroundColor Green
 } else {
     Write-Host "Building $AUTOMATION_IMAGE..." -ForegroundColor Yellow
-    docker build -f Dockerfile.automation -t $AUTOMATION_IMAGE .
+    docker build -f "$DOCKER_DIR/Dockerfile.automation" -t $AUTOMATION_IMAGE $PROJECT_DIR
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Image $AUTOMATION_IMAGE built" -ForegroundColor Green
     } else {
@@ -62,10 +73,10 @@ if ($frrImageExists) {
     Write-Host "Image $FRR_IMAGE exists" -ForegroundColor Green
 } else {
     Write-Host "Building $FRR_IMAGE..." -ForegroundColor Yellow
-    docker build -f Dockerfile.frr -t $FRR_IMAGE `
+    docker build -f "$DOCKER_DIR/Dockerfile.frr" -t $FRR_IMAGE `
         --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" `
         --build-arg FRR_USER="$FRR_USER" `
-        --build-arg FRR_PASS="$FRR_PASS" .
+        --build-arg FRR_PASS="$FRR_PASS" $PROJECT_DIR
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Image $FRR_IMAGE built" -ForegroundColor Green
     } else {
@@ -107,9 +118,9 @@ Write-Host "Deploying fresh lab..." -ForegroundColor Yellow
 docker run --rm -it --privileged `
   --network host `
   -v /var/run/docker.sock:/var/run/docker.sock `
-  -v ${PWD}:/lab `
+  -v ${PROJECT_DIR}:/lab `
   -w /lab `
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml --reconfigure
+  ghcr.io/srl-labs/clab containerlab deploy -t containerlab/topology.yml --reconfigure
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Lab deployed" -ForegroundColor Green
@@ -129,15 +140,8 @@ Write-Host ""
 Write-Host "=== Step 4: Data Plane Configuration ===" -ForegroundColor Yellow
 Write-Host "Configuring data plane networks from inventory.yml..." -ForegroundColor Yellow
 
-# Legacy bash script via Docker (replaced by Python)
-# docker run --rm `
-#   -v /var/run/docker.sock:/var/run/docker.sock `
-#   -v "${PROJECT_DIR}:/workspace" `
-#   -w /workspace `
-#   docker:cli sh create-links.sh
-
 # Data-driven approach: read network config from inventory.yml
-python create_links.py
+python "$SCRIPTS_PYTHON_DIR/create_links.py"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Data plane configured" -ForegroundColor Green
@@ -163,10 +167,10 @@ Write-Host "Copying files to automation container..." -ForegroundColor Yellow
 
 docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>$null
 
-docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
-docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
-docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
-docker cp credentials.yml clab-$LAB_NAME-automation:/workspace/
+docker cp "$SCRIPTS_PYTHON_DIR/configure_gobgp.py" clab-$LAB_NAME-automation:/workspace/
+docker cp "$PLAYBOOKS_DIR/config_playbook.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$ANSIBLE_DIR/inventory.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$CREDENTIALS_DIR/credentials.yml" clab-$LAB_NAME-automation:/workspace/
 
 Write-Host "Files copied" -ForegroundColor Green
 
@@ -204,8 +208,6 @@ Write-Host ""
 Write-Host "Configure BGP:" -ForegroundColor Yellow
 Write-Host "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
 Write-Host ""
-Write-Host "Multicast Notes:" -ForegroundColor Cyan
-Write-Host "  - Source: host1 (10.1.0.10) on frr1's backend"
-Write-Host "  - FHR: frr1 - First Hop Router for multicast source"
-Write-Host "  - LHR: frr2 - Last Hop Router for receivers"
-Write-Host "  - Receivers: 10.2.0.10, 10.2.0.20 behind frr2"
+Write-Host "Verify:" -ForegroundColor Yellow
+Write-Host "  .\scripts\shell\verify-bgp.ps1"
+Write-Host ""

@@ -13,6 +13,7 @@ multicast distribution tree on top of this, pruning paths where
 there are no interested receivers.
 """
 
+import os
 import subprocess
 import sys
 import time
@@ -45,8 +46,13 @@ def is_container_on_network(container, network_name):
     return False
 
 
-def load_inventory(path="inventory.yml"):
+def load_inventory(path=None):
     """Load and parse inventory.yml."""
+    if path is None:
+        # Script is in scripts/python/, inventory is in ansible/
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_dir = os.path.dirname(os.path.dirname(script_dir))
+        path = os.path.join(project_dir, "ansible", "inventory.yml")
     with open(path, "r") as f:
         return yaml.safe_load(f)
 

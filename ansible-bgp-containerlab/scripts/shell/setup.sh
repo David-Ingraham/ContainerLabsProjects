@@ -3,24 +3,35 @@
 
 set -e
 
-PROJECT_DIR="/Users/davidingraham/Desktop/personal_projects/networkAutomation/ContainerLabsProjects/ansible-bgp-containerlab"
+# Script is in scripts/shell/, project root is 2 levels up
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 AUTOMATION_IMAGE="network-automation:latest"
 FRR_IMAGE="frr-ansible:latest"
 LAB_NAME="bgp-lab"
 
+# Directory structure
+DOCKER_DIR="$PROJECT_DIR/docker"
+ANSIBLE_DIR="$PROJECT_DIR/ansible"
+CONTAINERLAB_DIR="$PROJECT_DIR/containerlab"
+SCRIPTS_PYTHON_DIR="$PROJECT_DIR/scripts/python"
+CREDENTIALS_DIR="$ANSIBLE_DIR/credentials"
+PLAYBOOKS_DIR="$ANSIBLE_DIR/playbooks"
+
 cd "$PROJECT_DIR"
 
 # Source credentials from env file
-if [ -f credentials.env ]; then
-    source credentials.env
+if [ -f "$CREDENTIALS_DIR/credentials.env" ]; then
+    source "$CREDENTIALS_DIR/credentials.env"
 else
-    echo "ERROR: credentials.env not found"
-    echo "Create credentials.env with FRR_ROOT_PASS, FRR_USER, FRR_PASS"
+    echo "ERROR: credentials.env not found at $CREDENTIALS_DIR/credentials.env"
+    echo "Create ansible/credentials/credentials.env with FRR_ROOT_PASS, FRR_USER, FRR_PASS"
     exit 1
 fi
 
 # Generate credentials.yml for Ansible from env vars
-cat > credentials.yml << EOF
+cat > "$CREDENTIALS_DIR/credentials.yml" << EOF
 # Ansible credentials for FRR routers
 # Auto-generated from credentials.env - do not edit directly
 ansible_user: ${FRR_USER}
@@ -40,7 +51,7 @@ if docker images | grep -q "network-automation.*latest"; then
     echo "Image $AUTOMATION_IMAGE exists"
 else
     echo "Building $AUTOMATION_IMAGE..."
-    docker build -f Dockerfile.automation -t $AUTOMATION_IMAGE .
+    docker build -f "$DOCKER_DIR/Dockerfile.automation" -t $AUTOMATION_IMAGE "$PROJECT_DIR"
     echo "Image $AUTOMATION_IMAGE built"
 fi
 
@@ -49,10 +60,10 @@ if docker images | grep -q "frr-ansible.*latest"; then
     echo "Image $FRR_IMAGE exists"
 else
     echo "Building $FRR_IMAGE..."
-    docker build -f Dockerfile.frr -t $FRR_IMAGE \
+    docker build -f "$DOCKER_DIR/Dockerfile.frr" -t $FRR_IMAGE \
         --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" \
         --build-arg FRR_USER="$FRR_USER" \
-        --build-arg FRR_PASS="$FRR_PASS" .
+        --build-arg FRR_PASS="$FRR_PASS" "$PROJECT_DIR"
     echo "Image $FRR_IMAGE built"
 fi
 
@@ -80,9 +91,9 @@ echo "Deploying fresh lab..."
 docker run --rm -it --privileged \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v $(pwd):/lab \
+  -v "$PROJECT_DIR":/lab \
   -w /lab \
-  ghcr.io/srl-labs/clab containerlab deploy -t topology.yml --reconfigure
+  ghcr.io/srl-labs/clab containerlab deploy -t containerlab/topology.yml --reconfigure
 echo "Lab deployed"
 
 # Step 3: Wait for containers to stabilize
@@ -90,23 +101,17 @@ echo ""
 echo "=== Step 3: Container Stabilization ==="
 echo "Waiting for containers to be ready..."
 sleep 5
-echo "✓ Containers ready"
-
+echo "Containers ready"
 
 # Step 4: Configure data plane interfaces
 echo ""
 echo "=== Step 4: Data Plane Configuration ==="
 echo "Configuring data plane networks from inventory.yml..."
 
-# Legacy bash script (replaced by Python)
-# chmod +x create-links.sh
-# ./create-links.sh
-
 # Data-driven approach: read network config from inventory.yml
-python3 create_links.py
+python3 "$SCRIPTS_PYTHON_DIR/create_links.py"
 
-echo "✓ Data plane configured"
-
+echo "Data plane configured"
 
 # Enable IP forwarding and add static routes on gobgp1
 # GoBGP image has no shell, so we use Alpine in gobgp1's network namespace
@@ -118,17 +123,16 @@ docker run --rm \
   alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
 echo "IP forwarding and routes configured on gobgp1"
 
-
 # Step 5: Copy configuration files to automation container
 echo ""
 echo "=== Step 5: Configuration Files ==="
 echo "Copying files to automation container..."
 docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>/dev/null || true
 
-docker cp configure_gobgp.py clab-$LAB_NAME-automation:/workspace/
-docker cp config_playbook.yml clab-$LAB_NAME-automation:/workspace/
-docker cp inventory.yml clab-$LAB_NAME-automation:/workspace/
-docker cp credentials.yml clab-$LAB_NAME-automation:/workspace/
+docker cp "$SCRIPTS_PYTHON_DIR/configure_gobgp.py" clab-$LAB_NAME-automation:/workspace/
+docker cp "$PLAYBOOKS_DIR/config_playbook.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$ANSIBLE_DIR/inventory.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$CREDENTIALS_DIR/credentials.yml" clab-$LAB_NAME-automation:/workspace/
 
 echo "Files copied"
 
@@ -138,32 +142,34 @@ echo "=========================================="
 echo "Infrastructure Setup Complete!"
 echo "=========================================="
 echo ""
-echo "Multicast Lab Topology:"
+echo "Topology:"
 echo ""
-echo "  [source]                                    [receiver1] [receiver2]"
-echo "     |                                              |          |"
-echo "  10.1.0.0/24                                   10.3.0.0/24"
-echo "     |                                              |"
-echo "   frr1 -------- frr2 -------- frr3 -------- gobgp1"
-echo "        10.0.1.x      10.0.2.x      10.0.3.x"
+echo "                     [frr2] -------- [receiver1, receiver2]"
+echo "                       |               10.2.0.0/24"
+echo "                    10.1.0.3"
+echo "                       |"
+echo "  host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2"
+echo "                            10.0.1.x        10.3.0.0/24"
 echo ""
 echo "Management Network: 10.1.1.0/24"
 echo "  - Automation:  10.1.1.10"
-echo "  - FRR1:        10.1.1.11 (AS 65001) - First Hop Router"
-echo "  - FRR2:        10.1.1.12 (AS 65002) - Transit Router"
-echo "  - FRR3:        10.1.1.13 (AS 65003) - Last Hop Router"
-echo "  - GoBGP1:      10.1.1.14 (AS 65004)"
-echo "  - Source:      10.1.1.20"
-echo "  - Receiver1:   10.1.1.21"
-echo "  - Receiver2:   10.1.1.22"
+echo "  - FRR1:        10.1.1.11 (AS 65001) - BGP + Multicast FHR"
+echo "  - FRR2:        10.1.1.12 (AS 65003) - Multicast LHR"
+echo "  - GoBGP1:      10.1.1.13 (AS 65002) - BGP peer"
+echo "  - Host1:       10.1.1.20 (multicast source)"
+echo "  - Host2:       10.1.1.21"
+echo "  - Receiver1:   10.1.1.22"
+echo "  - Receiver2:   10.1.1.23"
+echo ""
+echo "Data Plane Networks:"
+echo "  - frr1-network:  10.1.0.0/24 (frr1: .2, frr2: .3, host1: .10)"
+echo "  - frr2-network:  10.2.0.0/24 (frr2: .2, receiver1: .10, receiver2: .20)"
+echo "  - gobgp-network: 10.3.0.0/24 (gobgp1: .2, host2: .10)"
+echo "  - link-frr1-gobgp1: 10.0.1.0/29 (frr1: .2, gobgp1: .3)"
 echo ""
 echo "Configure BGP:"
-echo "  docker exec -it clab-\$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
+echo "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
 echo ""
-echo "Multicast Notes:"
-echo "  - Source (10.1.0.10) sends multicast traffic"
-echo "  - frr1 is FHR (First Hop Router) - registers source with RP"
-echo "  - frr3 is LHR (Last Hop Router) - responds to IGMP joins"
-echo "  - Receivers (10.3.0.x) join multicast groups via IGMP"
-
-
+echo "Verify:"
+echo "  ./scripts/shell/verify-bgp.sh"
+echo ""
