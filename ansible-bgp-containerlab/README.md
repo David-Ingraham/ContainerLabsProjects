@@ -1,6 +1,6 @@
 # BGP Lab with ContainerLab and Automation
 
-Network automation lab demonstrating BGP configuration between FRR and GoBGP routers using Ansible and gRPC. Includes a multicast-ready topology with source and receiver networks.
+Network automation lab demonstrating BGP configuration between FRR and GoBGP routers using Ansible and gRPC. 
 
 ## Directory Structure
 
