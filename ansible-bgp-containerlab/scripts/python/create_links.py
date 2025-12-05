@@ -4,8 +4,11 @@ Create data plane networks for BGP/Multicast lab.
 Reads network configuration from inventory.yml and executes docker commands.
 
 Network Types:
-1. Router Links - Point-to-point between routers (e.g., frr1 <-> frr2)
-2. Backend Networks - Connect hosts to their gateway router
+1. Router Links - Point-to-point between routers in different autonomous systems
+   (e.g., frr1 <-> gobgp1). Used when routers have no other shared network.
+2. Backend Networks - Connect hosts to their gateway router. Routers in the same
+   routing domain may share a backend network instead of a dedicated link
+   (e.g., frr2 connects to frr1 via frr1-network).
 
 Multicast Note:
 These networks form the physical topology. PIM will build a logical
