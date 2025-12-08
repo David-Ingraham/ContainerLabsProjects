@@ -39,6 +39,10 @@ topology:
         - ssh-keygen -A
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - supervisorctl restart pimd
+
+
 
     # FRR2: Multicast branch router
     frr2:
@@ -49,6 +53,8 @@ topology:
         - ssh-keygen -A
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - supervisorctl restart pimd
     
     # GoBGP: BGP peer (original topology)
     gobgp1:
