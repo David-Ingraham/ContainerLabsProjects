@@ -115,11 +115,88 @@
       debug:
         msg: "{{ bgp_routes.stdout_lines }}"
 
-# Future: Add PIM configuration play
-# - name: Configure PIM for Multicast
-#   hosts: frr_routers
-#   tasks:
-#     - name: Enable PIM on interfaces
-#       # PIM must be enabled on all interfaces that will forward multicast
-#     - name: Configure RP (Rendezvous Point)
-#       # For PIM-SM, all routers need to know the RP address
+- name: Configure PIM for Multicast
+  hosts: frr_routers
+  gather_facts: no
+  vars_files:
+    - credentials.yml
+  
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: False
+  
+  tasks:
+    - name: Display router being configured for multicast
+      debug:
+        msg: "Configuring PIM on {{ inventory_hostname }} (RP: {{ pim_rp_address }})"
+    
+    - name: Enable PIM on all interfaces
+      ansible.netcommon.cli_config:
+        config: |
+          {% for interface in pim_interfaces %}
+          interface {{ interface }}
+           ip pim
+          {% endfor %}
+      register: pim_interface_result
+    
+    - name: Configure RP address
+      ansible.netcommon.cli_config:
+        config: |
+          ip pim rp {{ pim_rp_address }}
+      register: pim_rp_result
+    
+    - name: Enable IGMP on receiver-facing interfaces
+      ansible.netcommon.cli_config:
+        config: |
+          {% for interface in igmp_interfaces | default([]) %}
+          interface {{ interface }}
+           ip igmp
+          {% endfor %}
+      register: igmp_result
+      when: igmp_interfaces is defined
+    
+    - name: Display PIM configuration status
+      debug:
+        msg: "PIM configured on {{ pim_interfaces | length }} interface(s), RP: {{ pim_rp_address }}"
+
+- name: Verify PIM Status
+  hosts: frr_routers
+  gather_facts: no
+  serial: 1
+  vars_files:
+    - credentials.yml
+  
+  environment:
+    ANSIBLE_HOST_KEY_CHECKING: False
+  
+  tasks:
+    - name: Wait for PIM neighbors to establish
+      pause:
+        seconds: 5
+      run_once: true
+    
+    - name: Get PIM neighbor status
+      ansible.netcommon.cli_command:
+        command: show ip pim neighbor
+      register: pim_neighbors
+      
+    - name: Display PIM neighbors for {{ inventory_hostname }}
+      debug:
+        msg: "{{ pim_neighbors.stdout_lines }}"
+    
+    - name: Get PIM interface status
+      ansible.netcommon.cli_command:
+        command: show ip pim interface
+      register: pim_interfaces_status
+      
+    - name: Display PIM interfaces for {{ inventory_hostname }}
+      debug:
+        msg: "{{ pim_interfaces_status.stdout_lines }}"
+    
+    - name: Get PIM RP info
+      ansible.netcommon.cli_command:
+        command: show ip pim rp-info
+      register: pim_rp_info
+      
+    - name: Display PIM RP info for {{ inventory_hostname }}
+      debug:
+        msg: "{{ pim_rp_info.stdout_lines }}"

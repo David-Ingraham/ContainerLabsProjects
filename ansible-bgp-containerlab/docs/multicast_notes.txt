@@ -1,0 +1,79 @@
+IGMP Subscription - Exact Mechanism
+receiver1 process:
+Application on receiver1 wants multicast group 239.1.1.1
+Host OS sends IGMP Membership Report to 239.1.1.1 on local subnet
+frr2 (gateway router) sees IGMP report on its eth2 interface
+frr2 records: "Interface eth2 has listener for 239.1.1.1"
+frr2 tells upstream router (frr1) via PIM Join message: "I need 239.1.1.1 from source 10.1.0.10"
+No unicast IP association: IGMP report just says "this subnet segment wants this group." Router remembers which interface the report came from.
+Full Multicast Lifecycle
+
+Phase 1: Configuration (You Do This)
+On all routers (frr1, frr2):
+Enable PIM on all interfaces:  interface eth1    ip pim  interface eth2    ip pim
+Configure RP (typically on frr1):
+On frr1:  ip pim rp 1.1.1.1  (frr1's router-id)On frr2:  ip pim rp 1.1.1.1  (point to frr1)
+On receivers (receiver1, receiver2):
+Nothing. Host OS handles IGMP automatically when application joins group.
+On source (host1):
+Nothing. Just send UDP packets to multicast group address.
+
+
+
+Phase 2: PIM Neighbor Discovery (Automatic)
+All routers send PIM Hello messages on all PIM-enabled interfaces
+frr1 and frr2 become PIM neighbors on shared link
+PIM neighbor table built
+
+
+
+Phase 3: Receiver Joins Group (Runtime)
+Application on receiver1 calls socket operation: join group 239.1.1.1
+receiver1 OS sends IGMP Membership Report to 239.1.1.1
+frr2 receives IGMP report on interface facing receiver1
+frr2 sends PIM Join message toward RP (1.1.1.1 = frr1)
+frr2 creates mroute entry: (*, 239.1.1.1) with outgoing interface = eth2 (toward receiver1)
+Note: (*, G) means "any source, this group" - shared tree via RP
+
+
+
+Phase 4: Source Starts Sending (Runtime)
+host1 application sends UDP packet: src=10.1.0.10, dst=239.1.1.1
+Packet arrives at frr1 (FHR)
+frr1 has no receivers yet, so encapsulates packet in PIM Register message
+frr1 sends PIM Register to RP (which is itself, 1.1.1.1)
+frr1 processes as RP: "I have traffic for 239.1.1.1, and frr2 wants it"
+frr1 creates mroute: (10.1.0.10, 239.1.1.1) with outgoing interface toward frr2
+frr1 forwards multicast traffic to frr2
+frr1 sends PIM Register-Stop back to itself (no more encapsulation needed)
+
+
+
+Phase 5: Forwarding Traffic (Steady State)
+Every multicast packet from host1:
+host1 sends to 239.1.1.1
+frr1 receives on interface from host1
+frr1 does RPF check: "Does this packet arrive from correct interface?" (checks unicast route to 10.1.0.10)
+If yes, frr1 looks up mroute: (10.1.0.10, 239.1.1.1) → forward to frr2
+frr2 receives packet
+frr2 does RPF check on source 10.1.0.10
+frr2 looks up mroute: (10.1.0.10, 239.1.1.1) → forward to receiver1, receiver2
+Packets delivered to both receivers
+
+
+
+Phase 6: Optimization (SPT Switchover - Optional)
+After seeing traffic, frr2 can switch from shared tree to source-specific tree:
+frr2 sends PIM Join directly toward source (10.1.0.10 = toward frr1)
+Creates source-specific mroute: (10.1.0.10, 239.1.1.1)
+Traffic now flows directly from source→frr1→frr2, bypassing RP logic
+More efficient, same path in your topology
+Key Tables Maintained
+PIM neighbor table: Which routers are PIM neighbors
+mroute table (multicast routing): (Source, Group) → incoming interface + outgoing interface list
+IGMP membership table: Which interfaces have group members
+Traffic forwarding uses mroute table. RPF uses unicast routing table.
+
+
+
+
