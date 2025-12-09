@@ -56,3 +56,4 @@ finally:
 "@
 
 docker exec -it "$SOURCE_HOST" python3 -c $pythonScript
+
