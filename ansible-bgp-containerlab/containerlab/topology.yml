@@ -37,10 +37,11 @@ topology:
       mgmt-ipv4: 10.1.1.11
       exec:
         - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
-        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
-        - supervisorctl restart pimd
+       
+
 
 
 
@@ -51,10 +52,9 @@ topology:
       mgmt-ipv4: 10.1.1.12
       exec:
         - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons #put this in the dockerfile
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
-        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
-        - supervisorctl restart pimd
     
     # GoBGP: BGP peer (original topology)
     gobgp1:
