@@ -4,7 +4,7 @@ all:
     lab_name: bgp-lab
     
     # Multicast configuration
-    multicast_rp: 1.1.1.1  # RP is frr1's router-id
+    multicast_rp: 10.1.0.2  # RP is frr1's backend interface
     multicast_group: 239.1.1.1  # Test group for multicast traffic
     
     # Router-to-router links (point-to-point)
@@ -64,7 +64,7 @@ all:
               pim_interfaces:
                 - eth1  # toward gobgp1
                 - eth2  # toward frr1-network (source network)
-              pim_rp_address: 1.1.1.1  # This router is the RP
+              pim_rp_address: 10.1.0.2  # This router is the RP (using eth2 address)
 
             # frr2: Multicast branch router, Last Hop Router for receivers
             frr2:
@@ -96,7 +96,7 @@ all:
               pim_interfaces:
                 - eth1  # toward frr1-network (connects to frr1)
                 - eth2  # toward frr2-network (receiver network)
-              pim_rp_address: 1.1.1.1  # Points to frr1 as RP
+              pim_rp_address: 10.1.0.2  # Points to frr1 as RP (frr1's eth2 address)
               igmp_interfaces:
                 - eth2  # Enable IGMP on receiver-facing interface
 
