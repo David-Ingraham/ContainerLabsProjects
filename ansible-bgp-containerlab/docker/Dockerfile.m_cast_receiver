@@ -1,0 +1,3 @@
+FROM python:3.11-alpine
+COPY scripts/python/multicast_receiver.py /app/
+CMD ["python3", "/app/multicast_receiver.py"]
