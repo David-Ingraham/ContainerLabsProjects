@@ -66,7 +66,7 @@ topology:
     # Host1: On frr1 backend, multicast source
     host1:
       kind: linux
-      image: alpine:latest
+      image: python:3.11-alpine
       mgmt-ipv4: 10.1.1.20
 
     # Host2: On gobgp1 backend (original topology)
@@ -78,12 +78,12 @@ topology:
     # Multicast receivers: Behind frr2
     receiver1:
       kind: linux
-      image: alpine:latest
+      image: python:3.11-alpine
       mgmt-ipv4: 10.1.1.22
 
     receiver2:
       kind: linux
-      image: alpine:latest
+      image: python:3.11-alpine
       mgmt-ipv4: 10.1.1.23
 
   # Links created by create_links.py from inventory.yml
