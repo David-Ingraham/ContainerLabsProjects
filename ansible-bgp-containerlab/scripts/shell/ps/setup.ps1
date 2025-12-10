@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 # Script is in scripts/shell/, project root is 2 levels up
 $SCRIPT_DIR = $PSScriptRoot
-$PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.FullName
+$PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.Parent.FullName
 
 $AUTOMATION_IMAGE = "network-automation:latest"
 $FRR_IMAGE = "frr-ansible:latest"
@@ -207,7 +207,4 @@ Write-Host "  - link-frr1-gobgp1: 10.0.1.0/29 (frr1: .2, gobgp1: .3)"
 Write-Host ""
 Write-Host "Configure BGP:" -ForegroundColor Yellow
 Write-Host "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
-Write-Host ""
-Write-Host "Verify:" -ForegroundColor Yellow
-Write-Host "  .\scripts\shell\verify-bgp.ps1"
-Write-Host ""
+

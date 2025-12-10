@@ -5,7 +5,7 @@ set -e
 
 # Script is in scripts/shell/, project root is 2 levels up
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 AUTOMATION_IMAGE="network-automation:latest"
 FRR_IMAGE="frr-ansible:latest"
@@ -169,7 +169,3 @@ echo "  - link-frr1-gobgp1: 10.0.1.0/29 (frr1: .2, gobgp1: .3)"
 echo ""
 echo "Configure BGP:"
 echo "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
-echo ""
-echo "Verify:"
-echo "  ./scripts/shell/verify-bgp.sh"
-echo ""
