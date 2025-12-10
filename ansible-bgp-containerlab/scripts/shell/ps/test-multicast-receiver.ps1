@@ -56,7 +56,7 @@ try:
 except KeyboardInterrupt:
     print('\nStopped')
 finally:
-    sock.close()
+    sock.close() 
 "@
 
 docker exec -it "$RECEIVER_HOST" python3 -c $pythonScript
