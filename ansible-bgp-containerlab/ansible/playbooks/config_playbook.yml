@@ -129,7 +129,7 @@
       debug:
         msg: "Configuring PIM on {{ inventory_hostname }} (RP: {{ pim_rp_address }})"
     
-    - name: Enable PIM on all interfaces
+    - name: Enable PIM on all interfaces #statically telling routers who RP it, implementing BSR (bootstrap router will lets router elect a router to advertize the rp)
       ansible.netcommon.cli_config:
         config: |
           {% for interface in pim_interfaces %}
