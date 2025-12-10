@@ -37,7 +37,7 @@
       debug:
         msg: "Configuring {{ inventory_hostname }} (AS {{ bgp_as }}, Router-ID {{ bgp_router_id }})"
 
-    # Build networks list for frr_bgp module
+    # Build networks list in format comptatible with frr_bgp module
     # Convert ["10.1.0.0/24"] to [{prefix: "10.1.0.0", masklen: 24}]
     - name: Build networks configuration
       set_fact:
