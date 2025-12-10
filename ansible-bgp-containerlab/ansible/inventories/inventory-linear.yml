@@ -1,0 +1,197 @@
+all:
+  vars:
+    # Lab-level configuration
+    lab_name: bgp-lab-linear
+    
+    # Multicast configuration
+    multicast_rp: 10.1.0.2  # RP is frr1
+    multicast_group: 239.1.1.1
+    
+    # Router-to-router links (point-to-point)
+    router_links:
+      - name: link-frr1-gobgp1
+        subnet: 10.0.1.0/29
+        endpoints:
+          - router: frr1
+            ip: 10.0.1.2
+          - router: gobgp1
+            ip: 10.0.1.3
+      
+      - name: link-frr2-frr3
+        subnet: 10.0.2.0/29
+        endpoints:
+          - router: frr2
+            ip: 10.0.2.2
+          - router: frr3
+            ip: 10.0.2.3
+      
+      - name: link-frr3-frr4
+        subnet: 10.0.3.0/29
+        endpoints:
+          - router: frr3
+            ip: 10.0.3.2
+          - router: frr4
+            ip: 10.0.3.3
+
+  children:
+    routers:
+      children:
+        frr_routers:
+          vars:
+            ansible_network_os: frr
+            ansible_connection: network_cli
+            ansible_host_key_checking: false
+            
+          hosts:
+            # frr1: RP, FHR
+            frr1:
+              ansible_host: 10.1.1.11
+              bgp_as: 65001
+              bgp_router_id: 1.1.1.1
+              
+              bgp_neighbors:
+                - neighbor: 10.0.1.3
+                  remote_as: 65002
+                  description: "gobgp1"
+                - neighbor: 10.1.0.3
+                  remote_as: 65003
+                  description: "frr2"
+              
+              backend_network_name: frr1-network
+              backend_ip: 10.1.0.2
+              backend_subnet: 10.1.0.0/24
+              backend_hosts:
+                - name: host1
+                  ip: 10.1.0.10
+                - name: frr2
+                  ip: 10.1.0.3
+              
+              advertise_networks:
+                - 10.1.0.0/24
+              
+              pim_interfaces:
+                - eth1  # toward gobgp1
+                - eth2  # toward frr1-network (source + frr2)
+              pim_rp_address: 10.1.0.2
+
+            # frr2: Transit router
+            frr2:
+              ansible_host: 10.1.1.12
+              bgp_as: 65003
+              bgp_router_id: 3.3.3.3
+              
+              bgp_neighbors:
+                - neighbor: 10.1.0.2
+                  remote_as: 65001
+                  description: "frr1"
+                - neighbor: 10.0.2.3
+                  remote_as: 65004
+                  description: "frr3"
+              
+              advertise_networks: []
+              
+              pim_interfaces:
+                - eth1  # toward frr1-network
+                - eth2  # toward frr3 (link-frr2-frr3)
+              pim_rp_address: 10.1.0.2
+
+            # frr3: Transit router
+            frr3:
+              ansible_host: 10.1.1.14
+              bgp_as: 65004
+              bgp_router_id: 4.4.4.4
+              
+              bgp_neighbors:
+                - neighbor: 10.0.2.2
+                  remote_as: 65003
+                  description: "frr2"
+                - neighbor: 10.0.3.3
+                  remote_as: 65005
+                  description: "frr4"
+              
+              advertise_networks: []
+              
+              pim_interfaces:
+                - eth1  # toward frr2 (link-frr2-frr3)
+                - eth2  # toward frr4 (link-frr3-frr4)
+              pim_rp_address: 10.1.0.2
+
+            # frr4: LHR
+            frr4:
+              ansible_host: 10.1.1.15
+              bgp_as: 65005
+              bgp_router_id: 5.5.5.5
+              
+              bgp_neighbors:
+                - neighbor: 10.0.3.2
+                  remote_as: 65004
+                  description: "frr3"
+              
+              backend_network_name: frr4-network
+              backend_ip: 10.2.0.2
+              backend_subnet: 10.2.0.0/24
+              backend_hosts:
+                - name: receiver1
+                  ip: 10.2.0.10
+                - name: receiver2
+                  ip: 10.2.0.20
+              
+              advertise_networks:
+                - 10.2.0.0/24
+              
+              pim_interfaces:
+                - eth1  # toward frr3 (link-frr3-frr4)
+                - eth2  # toward frr4-network (receivers)
+              pim_rp_address: 10.1.0.2
+              igmp_interfaces:
+                - eth2
+
+        gobgp_routers:
+          hosts:
+            gobgp1:
+              ansible_host: 10.1.1.13
+              bgp_as: 65002
+              bgp_router_id: 2.2.2.2
+              
+              bgp_neighbors:
+                - neighbor: 10.0.1.2
+                  remote_as: 65001
+                  description: "frr1"
+              
+              backend_network_name: gobgp-network
+              backend_ip: 10.3.0.2
+              backend_subnet: 10.3.0.0/24
+              backend_hosts:
+                - name: host2
+                  ip: 10.3.0.10
+
+    hosts_group:
+      hosts:
+        host1:
+          ansible_host: 10.1.1.20
+          role: multicast_source
+          data_ip: 10.1.0.10
+          gateway: 10.1.0.2
+          connected_router: frr1
+          
+        host2:
+          ansible_host: 10.1.1.21
+          role: endpoint
+          data_ip: 10.3.0.10
+          gateway: 10.3.0.2
+          connected_router: gobgp1
+          
+        receiver1:
+          ansible_host: 10.1.1.22
+          role: multicast_receiver
+          data_ip: 10.2.0.10
+          gateway: 10.2.0.2
+          connected_router: frr4
+          
+        receiver2:
+          ansible_host: 10.1.1.23
+          role: multicast_receiver
+          data_ip: 10.2.0.20
+          gateway: 10.2.0.2
+          connected_router: frr4
+

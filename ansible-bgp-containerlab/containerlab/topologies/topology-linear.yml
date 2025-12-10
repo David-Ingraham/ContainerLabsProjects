@@ -1,0 +1,99 @@
+name: bgp-lab-linear
+
+# Linear Chain Topology
+#
+# host1 → frr1 → frr2 → frr3 → frr4 → receivers
+#           |
+#         gobgp1 -- host2
+#
+# Tests RPF checks and multicast forwarding through multiple hops
+# frr1 = RP/FHR, frr4 = LHR
+
+mgmt:
+  network: mgmt-net
+  ipv4-subnet: 10.1.1.0/24
+
+topology:
+  nodes:
+    # Automation container
+    automation:
+      kind: linux
+      image: network-automation:latest  
+      mgmt-ipv4: 10.1.1.10
+    
+    # FRR1: RP, FHR
+    frr1:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.11
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR2: Transit router
+    frr2:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.12
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR3: Transit router
+    frr3:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.14
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR4: LHR
+    frr4:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.15
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+    
+    # GoBGP: BGP peer
+    gobgp1:
+      kind: linux
+      image: jauderho/gobgp:latest
+      mgmt-ipv4: 10.1.1.13
+      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
+    
+    # Host1: Multicast source
+    host1:
+      kind: linux
+      image: multicast-sender:latest
+      mgmt-ipv4: 10.1.1.20
+
+    # Host2: Regular endpoint
+    host2:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 10.1.1.21
+
+    # Multicast receivers: Behind frr4
+    receiver1:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.22
+
+    receiver2:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.23
+
+  # Links created by create_links.py from inventory.yml
+

@@ -1,0 +1,105 @@
+name: bgp-lab-branch-tree
+
+# Branch Tree Topology
+#
+#                    frr1 (RP/FHR)
+#                   /      \
+#                frr2      frr3
+#               /  \        /  \
+#           rcv1  rcv2   rcv3  rcv4
+#
+# host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2
+#                     /              \
+#                  frr2              frr3
+#                (10.1.0.3)        (10.1.0.4)
+#
+# Multicast: source (host1) -> frr1 -> [frr2, frr3] -> receivers
+
+mgmt:
+  network: mgmt-net
+  ipv4-subnet: 10.1.1.0/24
+
+topology:
+  nodes:
+    # Automation container
+    automation:
+      kind: linux
+      image: network-automation:latest  
+      mgmt-ipv4: 10.1.1.10
+    
+    # FRR1: Main router, First Hop Router for multicast, RP
+    frr1:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.11
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR2: Multicast branch router 1
+    frr2:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.12
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR3: Multicast branch router 2
+    frr3:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.14
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+    
+    # GoBGP: BGP peer
+    gobgp1:
+      kind: linux
+      image: jauderho/gobgp:latest
+      mgmt-ipv4: 10.1.1.13
+      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
+    
+    # Host1: Multicast source
+    host1:
+      kind: linux
+      image: multicast-sender:latest
+      mgmt-ipv4: 10.1.1.20
+
+    # Host2: Regular endpoint
+    host2:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 10.1.1.21
+
+    # Multicast receivers: Behind frr2
+    receiver1:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.22
+
+    receiver2:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.23
+
+    # Multicast receivers: Behind frr3
+    receiver3:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.24
+
+    receiver4:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.25
+
+  # Links created by create_links.py from inventory.yml
+

@@ -1,0 +1,87 @@
+name: bgp-lab-multi-source
+
+# Multi-Source Topology
+#
+# host1 (239.1.1.1) ──→ frr1 (RP) ←── host3 (239.1.1.2)
+#                          |
+#                        frr2
+#                       /    \
+#               rcv1 (wants    rcv2 (wants
+#                .1.1)          both .1.1 & .1.2)
+#
+# Tests multiple multicast groups
+# Shows selective subscription by receivers
+
+mgmt:
+  network: mgmt-net
+  ipv4-subnet: 10.1.1.0/24
+
+topology:
+  nodes:
+    # Automation container
+    automation:
+      kind: linux
+      image: network-automation:latest  
+      mgmt-ipv4: 10.1.1.10
+    
+    # FRR1: RP, FHR for both sources
+    frr1:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.11
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+
+    # FRR2: LHR
+    frr2:
+      kind: linux
+      image: frr-ansible:latest
+      mgmt-ipv4: 10.1.1.12
+      exec:
+        - ssh-keygen -A
+        - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
+        - /usr/lib/frr/frrinit.sh start
+        - /usr/sbin/sshd
+    
+    # GoBGP: BGP peer
+    gobgp1:
+      kind: linux
+      image: jauderho/gobgp:latest
+      mgmt-ipv4: 10.1.1.13
+      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
+    
+    # Host1: Multicast source 1 (239.1.1.1)
+    host1:
+      kind: linux
+      image: multicast-sender:latest
+      mgmt-ipv4: 10.1.1.20
+
+    # Host2: Regular endpoint
+    host2:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 10.1.1.21
+
+    # Host3: Multicast source 2 (239.1.1.2) - needs manual configuration
+    host3:
+      kind: linux
+      image: python:3.11-alpine
+      mgmt-ipv4: 10.1.1.26
+
+    # Multicast receivers
+    receiver1:
+      kind: linux
+      image: multicast-receiver:latest
+      mgmt-ipv4: 10.1.1.22
+
+    # Receiver2: Uses manual Python to join both groups
+    receiver2:
+      kind: linux
+      image: python:3.11-alpine
+      mgmt-ipv4: 10.1.1.23
+
+  # Links created by create_links.py from inventory.yml
+
