@@ -3,6 +3,9 @@
 
 set -e
 
+# Parse arguments
+DESIGN="${1:-og}"  # Default to "og" if no argument provided
+
 # Script is in scripts/shell/, project root is 2 levels up
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -10,6 +13,8 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 AUTOMATION_IMAGE="network-automation:latest"
 FRR_IMAGE="frr-ansible:latest"
 LAB_NAME="bgp-lab"
+TOPOLOGY_FILE="containerlab/topologies/topology-$DESIGN.yml"
+INVENTORY_FILE="ansible/inventories/inventory-$DESIGN.yml"
 
 # Directory structure
 DOCKER_DIR="$PROJECT_DIR/docker"
@@ -88,12 +93,13 @@ rm -rf "clab-$LAB_NAME" 2>/dev/null || true
 echo "Cleanup complete"
 
 echo "Deploying fresh lab..."
+echo "Using topology: $TOPOLOGY_FILE"
 docker run --rm -it --privileged \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$PROJECT_DIR":/lab \
   -w /lab \
-  ghcr.io/srl-labs/clab containerlab deploy -t containerlab/topology.yml --reconfigure
+  ghcr.io/srl-labs/clab containerlab deploy -t "$TOPOLOGY_FILE" --reconfigure
 echo "Lab deployed"
 
 # Step 3: Wait for containers to stabilize
@@ -131,7 +137,7 @@ docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>/dev/null || true
 
 docker cp "$SCRIPTS_PYTHON_DIR/configure_gobgp.py" clab-$LAB_NAME-automation:/workspace/
 docker cp "$PLAYBOOKS_DIR/config_playbook.yml" clab-$LAB_NAME-automation:/workspace/
-docker cp "$ANSIBLE_DIR/inventory.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$INVENTORY_FILE" clab-$LAB_NAME-automation:/workspace/inventory.yml
 docker cp "$CREDENTIALS_DIR/credentials.yml" clab-$LAB_NAME-automation:/workspace/
 
 echo "Files copied"

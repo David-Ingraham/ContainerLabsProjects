@@ -1,5 +1,9 @@
 # Complete lab setup: build image, deploy containers, configure infrastructure
 
+param(
+    [string]$Design = "og"
+)
+
 $ErrorActionPreference = "Stop"
 
 # Script is in scripts/shell/, project root is 2 levels up
@@ -9,6 +13,8 @@ $PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.Parent.FullName
 $AUTOMATION_IMAGE = "network-automation:latest"
 $FRR_IMAGE = "frr-ansible:latest"
 $LAB_NAME = "bgp-lab"
+$TOPOLOGY_FILE = "containerlab/topologies/topology-$Design.yml"
+$INVENTORY_FILE = "ansible/inventories/inventory-$Design.yml"
 
 # Directory structure
 $DOCKER_DIR = Join-Path $PROJECT_DIR "docker"
@@ -115,12 +121,13 @@ if (Test-Path "clab-$LAB_NAME") {
 Write-Host "Cleanup complete" -ForegroundColor Green
 
 Write-Host "Deploying fresh lab..." -ForegroundColor Yellow
+Write-Host "Using topology: $TOPOLOGY_FILE" -ForegroundColor Cyan
 docker run --rm -it --privileged `
   --network host `
   -v /var/run/docker.sock:/var/run/docker.sock `
   -v ${PROJECT_DIR}:/lab `
   -w /lab `
-  ghcr.io/srl-labs/clab containerlab deploy -t containerlab/topology.yml --reconfigure
+  ghcr.io/srl-labs/clab containerlab deploy -t $TOPOLOGY_FILE --reconfigure
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Lab deployed" -ForegroundColor Green
@@ -169,7 +176,7 @@ docker exec clab-$LAB_NAME-automation mkdir -p /workspace 2>$null
 
 docker cp "$SCRIPTS_PYTHON_DIR/configure_gobgp.py" clab-$LAB_NAME-automation:/workspace/
 docker cp "$PLAYBOOKS_DIR/config_playbook.yml" clab-$LAB_NAME-automation:/workspace/
-docker cp "$ANSIBLE_DIR/inventory.yml" clab-$LAB_NAME-automation:/workspace/
+docker cp "$INVENTORY_FILE" clab-$LAB_NAME-automation:/workspace/inventory.yml
 docker cp "$CREDENTIALS_DIR/credentials.yml" clab-$LAB_NAME-automation:/workspace/
 
 Write-Host "Files copied" -ForegroundColor Green
