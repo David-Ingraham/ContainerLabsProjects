@@ -1,5 +1,5 @@
 # BGP Lab with ContainerLab and Automation
-
+Not currently working with og topolgy. frr1 and gogbp are not sharing routes
 Network automation lab demonstrating BGP configuration between FRR and GoBGP routers using Ansible and gRPC. 
 
 ## Directory Structure
