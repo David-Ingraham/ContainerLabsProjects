@@ -115,7 +115,7 @@ echo "=== Step 4: Data Plane Configuration ==="
 echo "Configuring data plane networks from inventory.yml..."
 
 # Data-driven approach: read network config from inventory.yml
-python3 "$SCRIPTS_PYTHON_DIR/create_links.py"
+python3 "$SCRIPTS_PYTHON_DIR/create_links.py" -d "$DESIGN"
 
 echo "Data plane configured"
 

@@ -16,6 +16,7 @@ multicast distribution tree on top of this, pruning paths where
 there are no interested receivers.
 """
 
+import argparse
 import os
 import subprocess
 import sys
@@ -49,13 +50,13 @@ def is_container_on_network(container, network_name):
     return False
 
 
-def load_inventory(path=None):
-    """Load and parse inventory.yml."""
-    if path is None:
-        # Script is in scripts/python/, inventory is in ansible/
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_dir = os.path.dirname(os.path.dirname(script_dir))
-        path = os.path.join(project_dir, "ansible", "inventory.yml")
+def load_inventory(design="og"):
+    """Load and parse inventory.yml based on design name."""
+    # Script is in scripts/python/, inventory is in ansible/inventories/
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(os.path.dirname(script_dir))
+    path = os.path.join(project_dir, "ansible", "inventories", f"inventory-{design}.yml")
+    
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
@@ -393,11 +394,22 @@ def get_gobgp_routers(inventory):
 
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Create data plane networks for BGP/Multicast lab from inventory file"
+    )
+    parser.add_argument(
+        "-d", "--design",
+        default="og",
+        help="Design name (e.g., og, hub-spoke, branch-tree, linear, multi-source). Default: og"
+    )
+    args = parser.parse_args()
+    
     print("="*60)
-    print("Creating Data Plane Networks from inventory.yml")
+    print(f"Creating Data Plane Networks (Design: {args.design})")
     print("="*60)
     
-    inventory = load_inventory()
+    inventory = load_inventory(args.design)
     lab_name = get_lab_name(inventory)
     router_links = get_router_links(inventory)
     frr_routers = get_frr_routers(inventory)

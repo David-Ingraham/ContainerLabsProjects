@@ -148,7 +148,7 @@ Write-Host "=== Step 4: Data Plane Configuration ===" -ForegroundColor Yellow
 Write-Host "Configuring data plane networks from inventory.yml..." -ForegroundColor Yellow
 
 # Data-driven approach: read network config from inventory.yml
-python "$SCRIPTS_PYTHON_DIR/create_links.py"
+python "$SCRIPTS_PYTHON_DIR/create_links.py" -d $Design
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Data plane configured" -ForegroundColor Green
