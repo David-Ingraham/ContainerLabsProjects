@@ -1,0 +1,14 @@
+Enabling route forward in gobgp kernel is done in setup scripts with hardcoded
+routes. I'm not sure where to do this work. If i want the lab to be set up dynamically based 
+on inventory / topolgy, 
+
+if i create a custom  docker image, i wont be able to read the vlaues from invetory to tell gobgp what
+routes to put in its table based on arg passed to setup scripts. setup scripts look for the built image 
+
+
+i could buil the imag dynamically with the proper routes in the table each time i run set up 
+
+i could delegate the apline helper into createlinks running from the automaion container, which would be a container runing in a contianer 
+being managed by the docker desktop vm. its getting ridiculous and im not focusing on actual netowkring 
+
+
