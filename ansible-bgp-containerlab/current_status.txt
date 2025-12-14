@@ -1,5 +1,9 @@
 Enabling route forward in gobgp kernel is done in setup scripts with hardcoded
-routes. I'm not sure where to do this work. If i want the lab to be set up dynamically based 
+routes. it should just be done in configure_gogby.py can we invoke docker commnads to spin up an apline container for this in python?
+the routes gobgp advertizes are also hard coded. we can easily get it to read form the inventory file tho. we have to test to make sure that the correct 
+inventory is getting copied over into the automaiton container. if thinks making the kernel adjustments for gobpg from within the configure_gobgp.py makes the most sense. 
+it will read from the same source as the other configuration process for the network ie create_links.py and the frr work in the playbook. 
+from within I'm not sure where to do this work. If i want the lab to be set up dynamically based 
 on inventory / topolgy, 
 
 if i create a custom  docker image, i wont be able to read the vlaues from invetory to tell gobgp what
