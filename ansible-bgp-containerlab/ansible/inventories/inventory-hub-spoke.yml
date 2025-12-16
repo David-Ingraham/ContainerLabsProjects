@@ -9,14 +9,6 @@ all:
     
     # Router-to-router links (point-to-point)
     router_links:
-      - name: link-frr1-gobgp1
-        subnet: 10.0.1.0/29
-        endpoints:
-          - router: frr1
-            ip: 10.0.1.2
-          - router: gobgp1
-            ip: 10.0.1.3
-      
       - name: link-frr1-frr2
         subnet: 10.0.2.0/29
         endpoints:
@@ -58,9 +50,6 @@ all:
               bgp_router_id: 1.1.1.1
               
               bgp_neighbors:
-                - neighbor: 10.0.1.3
-                  remote_as: 65002
-                  description: "gobgp1"
                 - neighbor: 10.0.2.3
                   remote_as: 65003
                   description: "frr2"
@@ -84,11 +73,10 @@ all:
                 - 10.1.0.0/24
               
               pim_interfaces:
-                - eth1  # toward gobgp1
-                - eth2  # toward frr1-network (source + rcv2)
-                - eth3  # toward frr2
-                - eth4  # toward frr3
-                - eth5  # toward frr4
+                - eth1  # toward frr1-network (source + rcv2)
+                - eth2  # toward frr2
+                - eth3  # toward frr3
+                - eth4  # toward frr4
               pim_rp_address: 10.1.0.2
               igmp_interfaces:
                 - eth2
@@ -177,25 +165,6 @@ all:
               igmp_interfaces:
                 - eth2
 
-        gobgp_routers:
-          hosts:
-            gobgp1:
-              ansible_host: 10.1.1.13
-              bgp_as: 65002
-              bgp_router_id: 2.2.2.2
-              
-              bgp_neighbors:
-                - neighbor: 10.0.1.2
-                  remote_as: 65001
-                  description: "frr1"
-              
-              backend_network_name: gobgp-network
-              backend_ip: 10.5.0.2
-              backend_subnet: 10.5.0.0/24
-              backend_hosts:
-                - name: host2
-                  ip: 10.5.0.10
-
     hosts_group:
       hosts:
         host1:
@@ -204,13 +173,6 @@ all:
           data_ip: 10.1.0.10
           gateway: 10.1.0.2
           connected_router: frr1
-          
-        host2:
-          ansible_host: 10.1.1.21
-          role: endpoint
-          data_ip: 10.5.0.10
-          gateway: 10.5.0.2
-          connected_router: gobgp1
           
         receiver1:
           ansible_host: 10.1.1.22
