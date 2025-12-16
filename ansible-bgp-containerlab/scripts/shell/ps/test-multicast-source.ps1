@@ -1,7 +1,21 @@
 # Start multicast source on host1
 # Sends UDP packets to multicast group 239.1.1.1
 
-$LAB_NAME = "bgp-lab"
+param(
+    [string]$Design = "og"
+)
+
+$SCRIPT_DIR = $PSScriptRoot
+$PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.Parent.FullName
+$INVENTORY_FILE = Join-Path $PROJECT_DIR "ansible/inventories/inventory-$Design.yml"
+
+# Extract lab_name from inventory file
+$LAB_NAME = (Get-Content $INVENTORY_FILE | Select-String "^\s*lab_name:" | ForEach-Object { ($_ -split ':')[1].Trim() })
+if (-not $LAB_NAME) {
+    Write-Host "ERROR: Could not extract lab_name from $INVENTORY_FILE" -ForegroundColor Red
+    exit 1
+}
+
 $SOURCE_HOST = "clab-$LAB_NAME-host1"
 $MCAST_GROUP = "239.1.1.1"
 $MCAST_PORT = "5000"

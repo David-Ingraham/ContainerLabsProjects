@@ -12,9 +12,16 @@ $PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.Parent.FullName
 
 $AUTOMATION_IMAGE = "network-automation:latest"
 $FRR_IMAGE = "frr-ansible:latest"
-$LAB_NAME = "bgp-lab"
 $TOPOLOGY_FILE = "containerlab/topologies/topology-$Design.yml"
 $INVENTORY_FILE = "ansible/inventories/inventory-$Design.yml"
+
+# Extract lab_name from inventory file
+$LAB_NAME = (Get-Content $INVENTORY_FILE | Select-String "^\s*lab_name:" | ForEach-Object { ($_ -split ':')[1].Trim() })
+if (-not $LAB_NAME) {
+    Write-Host "ERROR: Could not extract lab_name from $INVENTORY_FILE" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Lab name: $LAB_NAME" -ForegroundColor Cyan
 
 # Directory structure
 $DOCKER_DIR = Join-Path $PROJECT_DIR "docker"
@@ -90,6 +97,34 @@ if ($frrImageExists) {
     }
 }
 
+# Multicast sender image
+$senderImageExists = docker images --format "{{.Repository}}:{{.Tag}}" | Select-String "multicast-sender:latest"
+if ($senderImageExists) {
+    Write-Host "Image multicast-sender:latest exists" -ForegroundColor Green
+} else {
+    Write-Host "Building multicast-sender:latest..." -ForegroundColor Yellow
+    docker build -f "$DOCKER_DIR/Dockerfile.m_cast_sender" -t multicast-sender:latest $PROJECT_DIR
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Image multicast-sender:latest built" -ForegroundColor Green
+    } else {
+        throw "Failed to build multicast sender Docker image"
+    }
+}
+
+# Multicast receiver image
+$receiverImageExists = docker images --format "{{.Repository}}:{{.Tag}}" | Select-String "multicast-receiver:latest"
+if ($receiverImageExists) {
+    Write-Host "Image multicast-receiver:latest exists" -ForegroundColor Green
+} else {
+    Write-Host "Building multicast-receiver:latest..." -ForegroundColor Yellow
+    docker build -f "$DOCKER_DIR/Dockerfile.m_cast_receiver" -t multicast-receiver:latest $PROJECT_DIR
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Image multicast-receiver:latest built" -ForegroundColor Green
+    } else {
+        throw "Failed to build multicast receiver Docker image"
+    }
+}
+
 # Step 2: Remove all containers and networks
 Write-Host ""
 Write-Host "=== Step 2: Cleanup ===" -ForegroundColor Yellow
@@ -156,16 +191,18 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Warning: Data plane configuration had issues, but continuing..." -ForegroundColor Yellow
 }
 
-# Enable IP forwarding and add static routes on gobgp1
-# GoBGP image has no shell, so we use Alpine in gobgp1's network namespace
-# GoBGP only does BGP protocol - it doesn't install routes into kernel
-# Static routes required for kernel to forward packets
-Write-Host "Configuring gobgp1 kernel routing..." -ForegroundColor Yellow
-docker run --rm `
-  --network container:clab-bgp-lab-gobgp1 `
-  --privileged `
-  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
-Write-Host "IP forwarding and routes configured on gobgp1" -ForegroundColor Green
+# Enable IP forwarding and add static routes on gobgp1 (if exists)
+$gobgpContainer = docker ps --format "{{.Names}}" | Select-String "clab-$LAB_NAME-gobgp1"
+if ($gobgpContainer) {
+    Write-Host "Configuring gobgp1 kernel routing..." -ForegroundColor Yellow
+    docker run --rm `
+      --network container:clab-bgp-lab-gobgp1 `
+      --privileged `
+      alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
+    Write-Host "IP forwarding and routes configured on gobgp1" -ForegroundColor Green
+} else {
+    Write-Host "No gobgp1 container found, skipping gobgp kernel routing" -ForegroundColor Yellow
+}
 
 # Step 5: Copy configuration files to automation container
 Write-Host ""

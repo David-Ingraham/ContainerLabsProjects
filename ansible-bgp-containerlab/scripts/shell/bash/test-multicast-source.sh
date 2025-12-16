@@ -1,8 +1,24 @@
 #!/bin/bash
+
+
 # Start multicast source on host1
 # Sends UDP packets to multicast group 239.1.1.1
 
-LAB_NAME="bgp-lab"
+# Parse arguments
+DESIGN="${1:-og}"  # Default to "og" if no argument provided
+
+# Script is in scripts/shell/bash/, project root is 3 levels up
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+INVENTORY_FILE="$PROJECT_DIR/ansible/inventories/inventory-$DESIGN.yml"
+
+# Extract lab_name from inventory file
+LAB_NAME=$(grep -E '^\s*lab_name:' "$INVENTORY_FILE" | awk '{print $2}')
+if [ -z "$LAB_NAME" ]; then
+    echo "ERROR: Could not extract lab_name from $INVENTORY_FILE"
+    exit 1
+fi
+
 SOURCE_HOST="clab-${LAB_NAME}-host1"
 MCAST_GROUP="239.1.1.1"
 MCAST_PORT="5000"

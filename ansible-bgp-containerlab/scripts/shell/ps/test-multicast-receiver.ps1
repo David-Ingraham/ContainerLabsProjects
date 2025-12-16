@@ -1,10 +1,21 @@
 # Join multicast group and receive packets on receiver containers
 
 param(
+    [string]$Design = "og",
     [string]$ReceiverName = "receiver1"
 )
 
-$LAB_NAME = "bgp-lab"
+$SCRIPT_DIR = $PSScriptRoot
+$PROJECT_DIR = (Get-Item $SCRIPT_DIR).Parent.Parent.Parent.FullName
+$INVENTORY_FILE = Join-Path $PROJECT_DIR "ansible/inventories/inventory-$Design.yml"
+
+# Extract lab_name from inventory file
+$LAB_NAME = (Get-Content $INVENTORY_FILE | Select-String "^\s*lab_name:" | ForEach-Object { ($_ -split ':')[1].Trim() })
+if (-not $LAB_NAME) {
+    Write-Host "ERROR: Could not extract lab_name from $INVENTORY_FILE" -ForegroundColor Red
+    exit 1
+}
+
 $MCAST_GROUP = "239.1.1.1"
 $MCAST_PORT = "5000"
 $RECEIVER_HOST = "clab-$LAB_NAME-$ReceiverName"
@@ -21,7 +32,8 @@ Write-Host "============================================"
 $containerCheck = docker inspect "$RECEIVER_HOST" 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Container $RECEIVER_HOST not found"
-    Write-Host "Usage: .\test-multicast-receiver.ps1 [receiver1|receiver2]"
+    Write-Host "Usage: .\test-multicast-receiver.ps1 [design] [receiver_name]"
+    Write-Host "Example: .\test-multicast-receiver.ps1 linear receiver1"
     exit 1
 }
 
