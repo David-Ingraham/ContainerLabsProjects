@@ -13,15 +13,27 @@
   gather_facts: no
   
   tasks:
+    - name: Check if gobgp_routers group exists and has hosts
+      set_fact:
+        has_gobgp: "{{ groups['gobgp_routers'] is defined and groups['gobgp_routers'] | length > 0 }}"
+    
     - name: Configure GoBGP BGP settings via Python gRPC
       command: python3 /workspace/configure_gobgp.py
       register: gobgp_result
       ignore_errors: yes
+      when: has_gobgp | bool
       
     - name: Display GoBGP configuration result
       debug:
         var: gobgp_result.stdout_lines
-      when: gobgp_result.stdout_lines is defined
+      when: 
+        - has_gobgp | bool
+        - gobgp_result.stdout_lines is defined
+    
+    - name: Skip message
+      debug:
+        msg: "No GoBGP routers in inventory, skipping GoBGP configuration"
+      when: not (has_gobgp | bool)
 
 - name: Configure FRR BGP (Multi-Neighbor Support)
   hosts: frr_routers
