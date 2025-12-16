@@ -12,9 +12,16 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 AUTOMATION_IMAGE="network-automation:latest"
 FRR_IMAGE="frr-ansible:latest"
-LAB_NAME="bgp-lab"
 TOPOLOGY_FILE="containerlab/topologies/topology-$DESIGN.yml"
 INVENTORY_FILE="ansible/inventories/inventory-$DESIGN.yml"
+
+# Extract lab_name from inventory file
+LAB_NAME=$(grep -E '^\s*lab_name:' "$INVENTORY_FILE" | awk '{print $2}')
+if [ -z "$LAB_NAME" ]; then
+    echo "ERROR: Could not extract lab_name from $INVENTORY_FILE"
+    exit 1
+fi
+echo "Lab name: $LAB_NAME"
 
 # Directory structure
 DOCKER_DIR="$PROJECT_DIR/docker"
@@ -72,6 +79,24 @@ else
     echo "Image $FRR_IMAGE built"
 fi
 
+# Multicast sender image
+if docker images | grep -q "multicast-sender.*latest"; then
+    echo "Image multicast-sender:latest exists"
+else
+    echo "Building multicast-sender:latest..."
+    docker build -f "$DOCKER_DIR/Dockerfile.m_cast_sender" -t multicast-sender:latest "$PROJECT_DIR"
+    echo "Image multicast-sender:latest built"
+fi
+
+# Multicast receiver image
+if docker images | grep -q "multicast-receiver.*latest"; then
+    echo "Image multicast-receiver:latest exists"
+else
+    echo "Building multicast-receiver:latest..."
+    docker build -f "$DOCKER_DIR/Dockerfile.m_cast_receiver" -t multicast-receiver:latest "$PROJECT_DIR"
+    echo "Image multicast-receiver:latest built"
+fi
+
 # Step 2: Remove all containers and networks
 echo ""
 echo "=== Step 2: Cleanup ==="
@@ -119,15 +144,17 @@ python3 "$SCRIPTS_PYTHON_DIR/create_links.py" -d "$DESIGN"
 
 echo "Data plane configured"
 
-# Enable IP forwarding and add static routes on gobgp1
-# GoBGP image has no shell, so we use Alpine in gobgp1's network namespace
-# GoBGP only does BGP protocol - it doesn't install routes into kernel
-echo "Configuring gobgp1 kernel routing..."
-docker run --rm \
-  --network container:clab-bgp-lab-gobgp1 \
-  --privileged \
-  alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
-echo "IP forwarding and routes configured on gobgp1"
+# Enable IP forwarding and add static routes on gobgp1 (if exists)
+if docker ps --format '{{.Names}}' | grep -q "clab-$LAB_NAME-gobgp1"; then
+  echo "Configuring gobgp1 kernel routing..."
+  docker run --rm \
+    --network container:clab-bgp-lab-gobgp1 \
+    --privileged \
+    alpine sh -c "sysctl -w net.ipv4.ip_forward=1 && ip route add 10.1.0.0/24 via 10.0.1.2 && ip route add 10.2.0.0/24 via 10.0.1.2"
+  echo "IP forwarding and routes configured on gobgp1"
+else
+  echo "No gobgp1 container found, skipping gobgp kernel routing"
+fi
 
 # Step 5: Copy configuration files to automation container
 echo ""
