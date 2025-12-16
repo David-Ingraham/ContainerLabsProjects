@@ -8,7 +8,7 @@ name: bgp-lab-branch-tree
 #               /  \        /  \
 #           rcv1  rcv2   rcv3  rcv4
 #
-# host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2
+# host1 (10.1.0.10) -- frr1 (10.1.0.2)
 #                     /              \
 #                  frr2              frr3
 #                (10.1.0.3)        (10.1.0.4)
@@ -60,24 +60,11 @@ topology:
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
     
-    # GoBGP: BGP peer
-    gobgp1:
-      kind: linux
-      image: jauderho/gobgp:latest
-      mgmt-ipv4: 10.1.1.13
-      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
-    
     # Host1: Multicast source
     host1:
       kind: linux
       image: multicast-sender:latest
       mgmt-ipv4: 10.1.1.20
-
-    # Host2: Regular endpoint
-    host2:
-      kind: linux
-      image: alpine:latest
-      mgmt-ipv4: 10.1.1.21
 
     # Multicast receivers: Behind frr2
     receiver1:

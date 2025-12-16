@@ -46,24 +46,11 @@ topology:
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
     
-    # GoBGP: BGP peer
-    gobgp1:
-      kind: linux
-      image: jauderho/gobgp:latest
-      mgmt-ipv4: 10.1.1.13
-      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
-    
     # Host1: Multicast source 1 (239.1.1.1)
     host1:
       kind: linux
       image: multicast-sender:latest
       mgmt-ipv4: 10.1.1.20
-
-    # Host2: Regular endpoint
-    host2:
-      kind: linux
-      image: alpine:latest
-      mgmt-ipv4: 10.1.1.21
 
     # Host3: Multicast source 2 (239.1.1.2) - needs manual configuration
     host3:

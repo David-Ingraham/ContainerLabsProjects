@@ -3,8 +3,6 @@ name: bgp-lab-linear
 # Linear Chain Topology
 #
 # host1 → frr1 → frr2 → frr3 → frr4 → receivers
-#           |
-#         gobgp1 -- host2
 #
 # Tests RPF checks and multicast forwarding through multiple hops
 # frr1 = RP/FHR, frr4 = LHR
@@ -65,24 +63,11 @@ topology:
         - /usr/lib/frr/frrinit.sh start
         - /usr/sbin/sshd
     
-    # GoBGP: BGP peer
-    gobgp1:
-      kind: linux
-      image: jauderho/gobgp:latest
-      mgmt-ipv4: 10.1.1.13
-      cmd: gobgpd -f /dev/null --api-hosts=0.0.0.0:50051 --log-level=debug --log-plain
-    
     # Host1: Multicast source
     host1:
       kind: linux
       image: multicast-sender:latest
       mgmt-ipv4: 10.1.1.20
-
-    # Host2: Regular endpoint
-    host2:
-      kind: linux
-      image: alpine:latest
-      mgmt-ipv4: 10.1.1.21
 
     # Multicast receivers: Behind frr4
     receiver1:
