@@ -216,39 +216,5 @@ docker cp "$PLAYBOOKS_DIR/config_playbook.yml" clab-$LAB_NAME-automation:/worksp
 docker cp "$INVENTORY_FILE" clab-$LAB_NAME-automation:/workspace/inventory.yml
 docker cp "$CREDENTIALS_DIR/credentials.yml" clab-$LAB_NAME-automation:/workspace/
 
-Write-Host "Files copied" -ForegroundColor Green
-
-# Final status
-Write-Host ""
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Infrastructure Setup Complete!" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Topology:" -ForegroundColor Green
-Write-Host ""
-Write-Host "                     [frr2] -------- [receiver1, receiver2]"
-Write-Host "                       |               10.2.0.0/24"
-Write-Host "                    10.1.0.3"
-Write-Host "                       |"
-Write-Host "  host1 (10.1.0.10) -- frr1 (10.1.0.2) -- gobgp1 -- host2"
-Write-Host "                            10.0.1.x        10.3.0.0/24"
-Write-Host ""
-Write-Host "Management Network: 10.1.1.0/24" -ForegroundColor Green
-Write-Host "  - Automation:  10.1.1.10"
-Write-Host "  - FRR1:        10.1.1.11 (AS 65001) - BGP + Multicast FHR"
-Write-Host "  - FRR2:        10.1.1.12 (AS 65003) - Multicast LHR"
-Write-Host "  - GoBGP1:      10.1.1.13 (AS 65002) - BGP peer"
-Write-Host "  - Host1:       10.1.1.20 (multicast source)"
-Write-Host "  - Host2:       10.1.1.21"
-Write-Host "  - Receiver1:   10.1.1.22"
-Write-Host "  - Receiver2:   10.1.1.23"
-Write-Host ""
-Write-Host "Data Plane Networks:" -ForegroundColor Green
-Write-Host "  - frr1-network:  10.1.0.0/24 (frr1: .2, frr2: .3, host1: .10)"
-Write-Host "  - frr2-network:  10.2.0.0/24 (frr2: .2, receiver1: .10, receiver2: .20)"
-Write-Host "  - gobgp-network: 10.3.0.0/24 (gobgp1: .2, host2: .10)"
-Write-Host "  - link-frr1-gobgp1: 10.0.1.0/29 (frr1: .2, gobgp1: .3)"
-Write-Host ""
-Write-Host "Configure BGP:" -ForegroundColor Yellow
+Write-Host "Run playbook from automation container:" -ForegroundColor Yellow
 Write-Host "  docker exec -it clab-$LAB_NAME-automation ansible-playbook -i inventory.yml config_playbook.yml"
-
