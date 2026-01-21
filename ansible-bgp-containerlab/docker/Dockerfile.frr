@@ -10,7 +10,7 @@ ARG FRR_PASS
 
 # Enable BGP and Zebra daemons
 RUN sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons && \
-    sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons   \
+    sed -i 's/zebra=no/zebra=yes/' /etc/frr/daemons &&  \
     sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons
 
 # Use HTTP for Alpine packages (avoids SSL issues with proxy)
@@ -41,6 +41,18 @@ RUN adduser -D ${FRR_USER} && \
 RUN touch /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
     chown frr:frr /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
     chmod 640 /etc/frr/bgpd.conf /etc/frr/vtysh.conf
+
+
+
+# Install Rust + deps
+RUN apk add --no-cache curl gcc musl-dev libnetfilter_queue-dev iptables
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Copy source and compile
+COPY longest_prefix_match/ /workspace/routing-daemon/
+WORKDIR /workspace/routing-daemon
+RUN cargo build --release
 
 # Default command (can be overridden by topology exec)
 CMD ["/bin/sh"]
