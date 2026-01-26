@@ -13,3 +13,11 @@ venv/
 
 *.env*
 credentials.yml
+
+
+
+# Rust 
+
+target/
+Cargo.lock
+**/*.rs.bk

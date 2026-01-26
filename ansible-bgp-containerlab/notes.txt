@@ -1,0 +1,19 @@
+Where you are: pick_route() works on hardcoded data ✓
+Next step: Parse real packet headers (extract dest IP)
+Then: Read actual routing tables into your Route structs
+Then: Connect to NFQUEUE and process real traffic
+Then: Handle errors, edge cases, performance monitoring
+
+
+
+yes. i want to moe very methodically here. i am not building this for any purpose other than learning so there is no rush. 
+
+
+pleas never reveal the correct and full rust code for me. i will ask small question and treat you just like a precise natural lnaguage google search 
+
+
+
+
+get rust code to read routes from frr
+
+use nfque to read packets coing into frr

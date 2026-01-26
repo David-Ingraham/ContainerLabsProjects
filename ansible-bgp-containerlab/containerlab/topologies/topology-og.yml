@@ -29,12 +29,15 @@ topology:
       kind: linux
       image: network-automation:latest  
       mgmt-ipv4: 10.1.1.10
+      
+
     
     # FRR1: Main router, First Hop Router for multicast
     frr1:
       kind: linux
       image: frr-ansible:latest
       mgmt-ipv4: 10.1.1.11
+    
       exec:
         - ssh-keygen -A
         - sed -i 's/pimd=no/pimd=yes/' /etc/frr/daemons

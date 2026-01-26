@@ -1,0 +1,9 @@
+Create a daemon that:
+Reads FRR's routing table via Netlink
+Intercepts packets (using raw sockets or iptables NFQUEUE)
+Makes LPM decisions with your code
+Forwards packets accordingly
+Required changes:
+Add netlink socket handling to read kernel routing table
+Add packet capture/forwarding logic
+Run as privileged container
