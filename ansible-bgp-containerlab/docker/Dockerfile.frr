@@ -42,6 +42,8 @@ RUN touch /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
     chown frr:frr /etc/frr/bgpd.conf /etc/frr/vtysh.conf && \
     chmod 640 /etc/frr/bgpd.conf /etc/frr/vtysh.conf
 
+#confgure iptables to queue packets for nfqueue in rust routing code
+RUN iptables -A FORWARD -j NFQUEUE --queue-num 0
 
 
 # Install Rust + deps
@@ -50,9 +52,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy source and compile
-COPY longest_prefix_match/ /workspace/routing-daemon/
-WORKDIR /workspace/routing-daemon
-RUN cargo build --release
+COPY longest_prefix_match/ /workspace/
+WORKDIR /workspace/
+
 
 # Default command (can be overridden by topology exec)
 CMD ["/bin/sh"]
