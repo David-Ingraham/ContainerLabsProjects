@@ -1,0 +1,51 @@
+use nfq::{Queue, Verdict, Message};
+use std::net::Ipv4Addr;
+
+pub struct PacketInfo {
+    pub destination_ip: String,
+    pub source_ip: String,
+}
+
+pub fn read_packets() -> Result<(), Box<dyn std::error::Error>> {
+    let mut queue = Queue::open()?;
+    queue.bind(0)?;
+    
+    println!(Listening for packets on NFQUEUE 0);
+    
+    loop {
+        let mut msg = queue.recv()?;
+        
+        if let Some(packet_info) = extract_ip_info(&msg) {
+            println!(Captured packet - Source: {} - {}, 
+                     packet_info.source_ip, 
+                     packet_info.destination_ip);
+        }
+        
+        msg.set_verdict(Verdict::Accept);
+        queue.verdict(msg)?;
+    }
+}
+
+fn extract_ip_info(msg: &Message) -> Option<PacketInfo> {
+    let payload = msg.get_payload();
+    
+    if payload.len() < 20 {
+        return None;
+    }
+    
+    let version = (payload[0] >> 4) & 0x0F;
+    if version != 4 {
+        return None;
+    }
+    
+    let src_bytes = [payload[12], payload[13], payload[14], payload[15]];
+    let dst_bytes = [payload[16], payload[17], payload[18], payload[19]];
+    
+    let source_ip = Ipv4Addr::from(src_bytes).to_string();
+    let destination_ip = Ipv4Addr::from(dst_bytes).to_string();
+    
+    Some(PacketInfo {
+        source_ip,
+        destination_ip,
+    })
+}

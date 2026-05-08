@@ -68,16 +68,15 @@ else
 fi
 
 # FRR container image (with credentials from env)
-if docker images | grep -q "frr-ansible.*latest"; then
-    echo "Image $FRR_IMAGE exists"
-else
-    echo "Building $FRR_IMAGE..."
-    docker build -f "$DOCKER_DIR/Dockerfile.frr" -t $FRR_IMAGE \
-        --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" \
-        --build-arg FRR_USER="$FRR_USER" \
-        --build-arg FRR_PASS="$FRR_PASS" "$PROJECT_DIR"
-    echo "Image $FRR_IMAGE built"
-fi
+
+echo "Building $FRR_IMAGE..."
+docker build -f "$DOCKER_DIR/Dockerfile.frr" -t $FRR_IMAGE \
+    --build-arg FRR_ROOT_PASS="$FRR_ROOT_PASS" \
+    --build-arg FRR_USER="$FRR_USER" \
+    --build-arg FRR_PASS="$FRR_PASS" "$PROJECT_DIR" \
+    --no-cache
+echo "Image $FRR_IMAGE built"
+
 
 # Multicast sender image
 if docker images | grep -q "multicast-sender.*latest"; then
@@ -101,17 +100,12 @@ fi
 echo ""
 echo "=== Step 2: Cleanup ==="
 
-# Stop running containers
-docker kill $(docker ps -q) 2>/dev/null || true
-
-# Remove all containers
-docker rm -f $(docker ps -aq) 2>/dev/null || true
-echo "Containers removed"
-
-# Remove non-default networks
-docker network ls --format "{{.Name}}" | grep -v -E "^(bridge|host|none)$" | xargs -r docker network rm 2>/dev/null || true
-echo "Networks removed"
-
+docker run --rm -it --privileged \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$(pwd)":/lab \
+  -w /lab \
+  ghcr.io/srl-labs/clab containerlab destroy -t containerlab/topologies/topology-og.yml
 # Remove containerlab state files
 rm -rf "clab-$LAB_NAME" 2>/dev/null || true
 
